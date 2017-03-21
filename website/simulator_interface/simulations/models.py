@@ -6,6 +6,9 @@ from django.forms import ModelForm
 
 
 class SimulationCase(models.Model):
+    """
+    Contains the overall simulation parameters.
+    """
     sim_title = models.CharField(max_length=100)
     sim_descrip = models.TextField(blank=True, null=True)
     sim_time_limit = models.FloatField(default=1.0)
