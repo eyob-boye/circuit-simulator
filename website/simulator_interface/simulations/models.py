@@ -9,17 +9,19 @@ class SimulationCase(models.Model):
     """
     Contains the overall simulation parameters.
     """
-    sim_title = models.CharField(max_length=100)
-    sim_descrip = models.TextField(blank=True, null=True)
-    sim_time_limit = models.FloatField(default=1.0)
-    sim_time_step = models.FloatField(default=1.0e-6)
-    sim_time_data = models.FloatField(default=10.0e-6)
-    sim_output_file = models.CharField(max_length=30, default="ckt_output.dat")
+    sim_title = models.CharField(max_length=100, verbose_name="Simulation Title")
+    sim_descrip = models.TextField(blank=True, null=True, verbose_name="Simulation description")
+    sim_time_limit = models.FloatField(default=1.0, verbose_name="Time duration")
+    sim_time_step = models.FloatField(default=1.0e-6, verbose_name="Integration time step")
+    sim_time_data = models.FloatField(default=10.0e-6, verbose_name="Time step of data storage")
+    sim_output_file = models.CharField(max_length=30, default="ckt_output.dat", verbose_name="Output data file")
     sim_output_slice = models.CharField(max_length=3,
                                         choices=(("Yes", "Yes"),
                                                  ("No", "No")),
-                                        default="No")
-    sim_div_number = models.IntegerField(default=1)
+                                        default="No",
+                                        verbose_name="Slice the output file?")
+    sim_div_number = models.IntegerField(default=1,
+                                        verbose_name="Number of slices")
 
     def __unicode__(self):
         return self.sim_title
