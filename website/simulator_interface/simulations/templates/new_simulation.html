@@ -1,17 +1,15 @@
 <!DOCTYPE html>
 
-{% extends "index.html" %}
+{% extends "base_framework.html" %}
 
 <head>
-	<title>{% block title %}{% endblock %}
+	<title>
 	</title>
 </head>
 
 <body>
 	<br><br>
-	{% block main_body %}
-	<div align="center">
-		<div style="width:80%" align="left">
+	{% block main_body_content %}
 		<table>
 			{% for sim_item in simulation_form %}
 			<tr>
@@ -20,7 +18,5 @@
 			</tr>
 			{% endfor %}
 		</table>
-		</div>
-	</div>
 	{% endblock %}
 </body>
