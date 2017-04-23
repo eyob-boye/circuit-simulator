@@ -10,13 +10,18 @@
 <body>
 	<br><br>
 	{% block main_body_content %}
-		<table>
-			{% for sim_item in simulation_form %}
-			<tr>
-				<td>{{ sim_item.label }}</td>
-				<td>{{ sim_item }}</td>
-			</tr>
-			{% endfor %}
-		</table>
+		<form action="" method="post">
+			<table>
+				{% for sim_item in simulation_form %}
+				<tr>
+					<td>{{ sim_item.label }}</td>
+					<td>{{ sim_item }}</td>
+				</tr>
+				{% endfor %}
+			</table>
+			<br> <br>
+			<input type="submit" name="submit"  value="Submit">
+			{% csrf_token %}
+		</form>
 	{% endblock %}
 </body>

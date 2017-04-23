@@ -9,7 +9,7 @@ class SimulationCase(models.Model):
     """
     Contains the overall simulation parameters.
     """
-    sim_title = models.CharField(max_length=100, verbose_name="Simulation Title")
+    sim_title = models.CharField(max_length=100, default="Test case", verbose_name="Simulation Title")
     sim_descrip = models.TextField(blank=True, null=True, verbose_name="Simulation description")
     sim_time_limit = models.FloatField(default=1.0, verbose_name="Time duration")
     sim_time_step = models.FloatField(default=1.0e-6, verbose_name="Integration time step")
