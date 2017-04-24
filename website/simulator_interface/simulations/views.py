@@ -1,6 +1,6 @@
 from django.shortcuts import render
 from django.http import HttpResponse
-from models import SimulationCase, SimulationCaseForm
+from models import SimulationCase, SimulationCaseForm, CircuitSchematics, CircuitSchematicsForm
 
 # Create your views here.
 
@@ -10,12 +10,26 @@ def index(request):
 
 def new_simulation(request):
     if not request.method == "POST":
-        simulation_form = SimulationCaseForm()
+        simulation_form = []
+        simulation_form.append(SimulationCaseForm())
+        simulation_form.append(CircuitSchematicsForm())
+
     else:
         if "submit" in request.POST and request.POST["submit"]=="Submit":
             print(request.POST)
             print
             print
+            print(request.POST.getlist(u'ckt_file_path'))
+#            print(request.FILES[u'ckt_file_path'])
+#            try_file = CircuitSchematics()
+#            try_file.ckt_file_path = request.FILES[u'ckt_file_path']
+#            print(try_file)
+#            print(try_file.ckt_file_path.path)
+#            print(try_file.ckt_file_path.name)
+#            try_file.path()
+#            try_file.save()
+#            print
+#            print
             sim_para_received = SimulationCaseForm(request.POST)
             if sim_para_received.is_valid():
                 sim_parameters = sim_para_received.cleaned_data
@@ -30,9 +44,18 @@ def new_simulation(request):
                 sim_para_model.sim_output_file = sim_parameters["sim_output_file"]
                 sim_para_model.sim_output_slice = sim_parameters["sim_output_slice"]
                 sim_para_model.sim_div_number = sim_parameters["sim_div_number"]
+                sim_para_model.sim_working_directory = sim_parameters["sim_working_directory"]
                 
-                
-            simulation_form = SimulationCaseForm(instance=sim_para_model)
+                ckt_file = CircuitSchematics()
+                ckt_file.ckt_file_name = request.POST.getlist(u'ckt_file_path')[0]
+                ckt_file.save()
+                sim_para_model.sim_circuit_files = ckt_file
+                sim_para_model.save()
+            
+            simulation_form = []
+            simulation_form.append(SimulationCaseForm(instance=sim_para_model))
+            simulation_form.append(CircuitSchematicsForm(instance=ckt_file))
+
     return render(request,
-                  "new_simulation.html",
-                  {'simulation_form' : simulation_form})
+          "new_simulation.html",
+          {'simulation_form' : simulation_form})

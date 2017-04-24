@@ -12,11 +12,13 @@
 	{% block main_body_content %}
 		<form action="" method="post">
 			<table>
-				{% for sim_item in simulation_form %}
-				<tr>
-					<td>{{ sim_item.label }}</td>
-					<td>{{ sim_item }}</td>
-				</tr>
+				{% for sim_data in simulation_form %}
+					{% for sim_item in sim_data %}
+					<tr>
+						<td>{{ sim_item.label }}</td>
+						<td>{{ sim_item }}</td>
+					</tr>
+					{% endfor %}
 				{% endfor %}
 			</table>
 			<br> <br>
