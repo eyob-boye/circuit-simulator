@@ -12,15 +12,50 @@
 	{% block main_body_content %}
 		<form action="" method="post">
 			<table>
-				{% for sim_data in simulation_form %}
-					{% for sim_item in sim_data %}
-					<tr>
-						<td>{{ sim_item.label }}</td>
-						<td>{{ sim_item }}</td>
-					</tr>
-					{% endfor %}
+				{% for sim_item in simulation_form %}	
+				<tr>
+					<td>{{ sim_item.label }}</td>
+					<td>{{ sim_item }}</td>
+				</tr>
 				{% endfor %}
 			</table>
+			
+			<p>Browse your computer and upload the circuit schematic spreadsheets (.csv) files.
+			</p>
+			<table>
+				{% for sim_item in ckt_schematic_form %}
+					{% if sim_item.0 %}
+					<tr>
+						<td>
+							File name: 
+						</td>
+						<td>
+							{{ sim_item.0.ckt_file_name }}
+						</td>
+						<td>
+							File description: 
+						</td>
+						<td>
+							{{ sim_item.0.ckt_file_descrip }}
+						</td>
+					</tr>
+					<tr>
+						<td></td>
+						<td>
+							Want to change this file?
+							<input type="submit" name="change_ckt_schematic" Value="Change circuit">
+						</td>
+					</tr>
+					{% else %}
+					<tr>
+						<td>{{ sim_item.1.label }}
+						</td>
+						<td>{{ sim_item.1 }}</td>
+					</tr>
+					{% endif %}
+				{% endfor %}
+			</table>
+			<input type="submit" name="add_ckt_schematic" value="Add circuit file">
 			<br> <br>
 			<input type="submit" name="submit"  value="Submit">
 			{% csrf_token %}
