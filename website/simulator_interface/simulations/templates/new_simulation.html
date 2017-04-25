@@ -22,9 +22,13 @@
 			
 			<p>Browse your computer and upload the circuit schematic spreadsheets (.csv) files.
 			</p>
-			<table>
+			<ol>
+			<table>			
 				{% for sim_item in ckt_schematic_form %}
+				<tr> <td> <li> </li> </td>
+				<td>				
 					{% if sim_item.0 %}
+					<table>
 					<tr>
 						<td>
 							File name: 
@@ -32,6 +36,8 @@
 						<td>
 							{{ sim_item.0.ckt_file_name }}
 						</td>
+					</tr>
+					<tr>
 						<td>
 							File description: 
 						</td>
@@ -39,22 +45,24 @@
 							{{ sim_item.0.ckt_file_descrip }}
 						</td>
 					</tr>
-					<tr>
-						<td></td>
-						<td>
-							Want to change this file?
-							<input type="submit" name="change_ckt_schematic" Value="Change circuit">
-						</td>
-					</tr>
+					</table>
+					Want to change this file? Click 
+					<input type="submit" name="change_ckt_id_{{ sim_item.0.id }}" Value="Remove circuit"> <br>
+					and add another one using Add circuit button below.
 					{% else %}
+					<table>
 					<tr>
 						<td>{{ sim_item.1.label }}
 						</td>
 						<td>{{ sim_item.1 }}</td>
 					</tr>
+					</table>
 					{% endif %}
+				</td>
+				</tr>
 				{% endfor %}
 			</table>
+			</ol>
 			<input type="submit" name="add_ckt_schematic" value="Add circuit file">
 			<br> <br>
 			<input type="submit" name="submit"  value="Submit">
