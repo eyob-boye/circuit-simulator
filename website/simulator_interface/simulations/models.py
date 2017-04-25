@@ -4,12 +4,6 @@ from django.forms import ModelForm
 
 # Create your models here.
 
-class CircuitSchematics(models.Model):
-    ckt_file_path = models.FileField(max_length=300, upload_to='')
-    ckt_file_descrip = models.CharField(max_length=100, default="Sample circuit", verbose_name="Schematic description")
-    ckt_file_name = models.CharField(max_length=300)
-
-
 class SimulationCase(models.Model):
     """
     Contains the overall simulation parameters.
@@ -29,7 +23,7 @@ class SimulationCase(models.Model):
                                         verbose_name="Number of slices")
     sim_working_directory = models.CharField(max_length=300, verbose_name="Directory with circuit files")
     
-    sim_circuit_files = models.ForeignKey(CircuitSchematics)
+#    sim_circuit_files = models.ForeignKey(CircuitSchematics)
 
     def __unicode__(self):
         return self.sim_title
@@ -52,6 +46,12 @@ class SimulationCaseForm(ModelForm):
             'sim_descrip': forms.Textarea(attrs={'rows': 15, 'cols': 80}),
             }
 
+
+class CircuitSchematics(models.Model):
+    ckt_file_path = models.FileField(max_length=300, upload_to='')
+    ckt_file_descrip = models.CharField(max_length=100, default="Sample circuit", verbose_name="Schematic description")
+    ckt_file_name = models.CharField(max_length=300)
+    ckt_sim_case = models.ForeignKey(SimulationCase)
 
 class CircuitSchematicsForm(ModelForm):
     class Meta:

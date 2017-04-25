@@ -58,6 +58,7 @@
 			<input type="submit" name="add_ckt_schematic" value="Add circuit file">
 			<br> <br>
 			<input type="submit" name="submit"  value="Submit">
+			<input type="hidden" name="sim_id" value="{{ sim_id }}">
 			{% csrf_token %}
 		</form>
 	{% endblock %}
