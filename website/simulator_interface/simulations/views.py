@@ -31,7 +31,8 @@ def extract_simulation_case(request):
         sim_para_model.save()
 
         simulation_form = []
-        simulation_form.append([[], [SimulationCaseForm(instance=sim_para_model)])
+        simulation_form.append([])
+        simulation_form.append([SimulationCaseForm(instance=sim_para_model)])
     else:
         pass
 
