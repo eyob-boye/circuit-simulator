@@ -1,6 +1,7 @@
 from django.db import models
 from django import forms
 from django.forms import ModelForm
+import os
 
 # Create your models here.
 
@@ -45,6 +46,17 @@ class SimulationCaseForm(ModelForm):
             'sim_title': forms.TextInput(attrs={'size': 80}),
             'sim_descrip': forms.Textarea(attrs={'rows': 15, 'cols': 80}),
             }
+    
+    def clean_sim_working_directory(self):
+        webdir = self.cleaned_data["sim_working_directory"]
+        try:
+            test_file = open(os.path.join(os.sep, \
+                            webdir, \
+                            "testfile"), "w")
+        except:
+            raise forms.ValidationError("Can't write into this directory!")
+        
+        return webdir
 
 
 class CircuitSchematics(models.Model):

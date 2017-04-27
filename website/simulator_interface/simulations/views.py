@@ -135,6 +135,9 @@ def new_simulation(request):
                                       ckt_file_list[0].ckt_file_name), "r")
                 for line in f:
                     print(line)
+            
+            else:
+                pass
 
         else:
             if "sim_id" in request.POST:

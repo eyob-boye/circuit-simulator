@@ -16,6 +16,11 @@
 				<tr>
 					<td>{{ sim_item.label }}</td>
 					<td>{{ sim_item }}</td>
+					{% if sim_item.errors %}
+						{% for sim_errors in sim_item.errors %}
+							{{ sim_errors }}
+						{% endfor %}
+					{% endif %}
 				</tr>
 				{% endfor %}
 			</table>
