@@ -11,17 +11,20 @@
 	<br><br>
 	{% block main_body_content %}
 		<form action="" method="post">
+			{% if simulation_form.0.errors %}
+				<p style="color:red; font-size:200%"> There are errors in the form! </p>
+			{% endif %}
 			<table>
-				{% for sim_item in simulation_form %}
-				<tr>
-					<td>{{ sim_item.label }}</td>
-					<td>{{ sim_item }}</td>
-					{% if sim_item.errors %}
-						{% for sim_errors in sim_item.errors %}
-							{{ sim_errors }}
-						{% endfor %}
-					{% endif %}
-				</tr>
+				{% for sim_item in simulation_form.0 %}
+					<tr>
+						<td>{{ sim_item.label }}</td>
+						<td>{{ sim_item }}
+						{% if sim_item.errors %}
+							{% for sim_errors in sim_item.errors %}
+								<font color="red"> {{ sim_errors }} </font>
+							{% endfor %}</td>
+						{% endif %}
+					</tr>
 				{% endfor %}
 			</table>
 

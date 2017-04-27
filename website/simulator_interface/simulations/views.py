@@ -29,6 +29,9 @@ def extract_simulation_case(request):
         sim_para_model.sim_div_number = sim_parameters["sim_div_number"]
         sim_para_model.sim_working_directory = sim_parameters["sim_working_directory"]
         sim_para_model.save()
+
+        simulation_form = []
+        simulation_form.append([[], [SimulationCaseForm(instance=sim_para_model)])
     else:
         pass
 
@@ -137,7 +140,12 @@ def new_simulation(request):
                     print(line)
             
             else:
-                pass
+                sim_id = -1
+                simulation_form = []
+                simulation_form.append(SimulationCaseForm(request.POST))
+                ckt_schematic_form = []
+                ckt_schematic_form.append([[], CircuitSchematicsForm()])
+                
 
         else:
             if "sim_id" in request.POST:
