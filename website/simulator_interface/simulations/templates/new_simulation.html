@@ -11,11 +11,57 @@
 	<br><br>
 	{% block main_body_content %}
 		<form action="" method="post">
-			{% if simulation_form.0.errors %}
+		{% if simulation_form.0 %}
+			<p style="font-size:150%; font-weight:bold">Simulation Parameters</p>
+			<table>
+				<tr style="padding:15px">
+					<td style="text-align:left; padding:5px; font-weight:bold">Simulation title: </td>
+					<td>{{ simulation_form.0.sim_title }}</td>
+				</tr>
+				<tr style="padding:15px">
+					<td style="text-align:left; padding:5px; font-weight:bold">Simulation description: </td>
+					<td>{{ simulation_form.0.sim_descrip }}</td>
+				</tr>
+				<tr style="padding:15px">
+					<td style="text-align:left; padding:5px; font-weight:bold">Time duration: </td>
+					<td>{{ simulation_form.0.sim_time_limit }}</td>
+				</tr>
+				<tr style="padding:15px">
+					<td style="text-align:left; padding:5px; font-weight:bold">Integration time step: </td>
+					<td>{{ simulation_form.0.sim_time_step }}</td>
+				</tr>
+				<tr style="padding:15px">
+					<td style="text-align:left; padding:5px; font-weight:bold">Time step of data storage: </td>
+					<td>{{ simulation_form.0.sim_time_data }}</td>
+				</tr>
+				<tr style="padding:15px">
+					<td style="text-align:left; padding:5px; font-weight:bold">Output data file: </td>
+					<td>{{ simulation_form.0.sim_output_file }}</td>
+				</tr>
+				<tr style="padding:15px">
+					<td style="text-align:left; padding:5px; font-weight:bold">Slice the output file?: </td>
+					<td>{{ simulation_form.0.sim_output_slice }}</td>
+				</tr>
+				<tr style="padding:15px">
+					<td style="text-align:left; padding:5px; font-weight:bold">Number of slices: </td>
+					<td>{{ simulation_form.0.sim_div_number }}</td>
+				</tr>
+				<tr style="padding:15px">
+					<td style="text-align:left; padding:5px; font-weight:bold">Directory with circuit files: </td>
+					<td>{{ simulation_form.0.sim_working_directory }}</td>
+				</tr>
+			</table>
+			<br>
+			<input type="submit" name="edit_sim_param" value="Edit Simulation Parameters">
+			<br> <br>
+		{% endif %}
+		
+		{% if simulation_form.1 %}
+			{% if simulation_form.1.errors %}
 				<p style="color:red; font-size:200%"> There are errors in the form! </p>
 			{% endif %}
 			<table>
-				{% for sim_item in simulation_form.0 %}
+				{% for sim_item in simulation_form.1 %}
 					<tr>
 						<td>{{ sim_item.label }}</td>
 						<td>{{ sim_item }}
@@ -27,46 +73,57 @@
 					</tr>
 				{% endfor %}
 			</table>
-
+			<br>
+			<input type="submit" name="save_sim_param" value="Save Simulation Parameters">
+			<br> <br>
+		{% endif %}
+		
+		{% if ckt_schematic_form %}
 			<p>Browse your computer and upload the circuit schematic spreadsheets (.csv) files. All the schematics must be in the same directory 
 			as the working directory above.</p>
 			<table>
 				{% for sim_item in ckt_schematic_form %}
-				<tr>
-					<td style="text-align:left; padding:25px"> {{ forloop.counter }}. </td>
-					<td>
-						{% if sim_item.0 %}
-						<table>
-							<tr style="padding:15px">
-								<td>File name: </td>
-								<td>{{ sim_item.0.ckt_file_name }}</td>
-							</tr>
-							<tr>
-								<td>File description:</td>
-								<td>{{ sim_item.0.ckt_file_descrip }}</td>
-							</tr>
-						</table>
-						Want to change this file? Click
-						<input type="submit" name="change_ckt_id_{{ sim_item.0.id }}" Value="Remove circuit"> <br>
-						and add another one using Add circuit button below. <br><br>
-						{% else %}
-						<table>
-							<tr>
-								<td>{{ sim_item.1.label }}</td>
-								<td>{{ sim_item.1 }}</td>
-							</tr>
-						</table>
-						{% endif %}
-					</td>
-				</tr>
+					<tr>
+						<td style="text-align:left; padding:25px"> {{ forloop.counter }}. </td>
+						<td>
+							{% if sim_item.0 %}
+								<table>
+									<tr style="padding:15px">
+										<td>File name: </td>
+										<td>{{ sim_item.0.ckt_file_name }}</td>
+									</tr>
+									<tr>
+										<td>File description:</td>
+										<td>{{ sim_item.0.ckt_file_descrip }}</td>
+									</tr>
+								</table>
+								Want to change this file? Click
+								<input type="submit" name="change_ckt_id_{{ sim_item.0.id }}" Value="Remove circuit"> <br>
+								and add another one using Add circuit button below. <br><br>
+							{% else %}
+								<table>
+									<tr>
+										<td>{{ sim_item.1.label }}</td>
+										<td>{{ sim_item.1 }}</td>
+									</tr>
+									<tr>
+										<td></td>
+										<td><input type="submit" name="save_ckt_schematic" value="Save circuit file"></td>
+									</tr>
+								</table>
+							{% endif %}
+						</td>
+					</tr>
 				{% endfor %}
 			</table>
+			<br>
 			<input type="submit" name="add_ckt_schematic" value="Add circuit file">
 			Use this button to add circuit schematic spreadsheets.
-			<br> <br>
-			<input type="submit" name="submit"  value="Submit">
-			<input type="hidden" name="sim_id" value="{{ sim_id }}">
-			{% csrf_token %}
+		{% endif %}
+
+		<br> <br>
+		<input type="hidden" name="sim_id" value="{{ sim_id }}">
+		{% csrf_token %}
 		</form>
 	{% endblock %}
 </body>
