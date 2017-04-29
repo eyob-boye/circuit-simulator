@@ -46,7 +46,15 @@ class SimulationCaseForm(ModelForm):
             'sim_title': forms.TextInput(attrs={'size': 80}),
             'sim_descrip': forms.Textarea(attrs={'rows': 15, 'cols': 80}),
             }
-    
+
+    def clean_sim_time_limit(self):
+        sim_time_limit = float(self.cleaned_data["sim_time_limit"])
+        if sim_time_limit<=0.0:
+            raise forms.ValidationError("Time limit must be greater than 0.0")
+        
+        return sim_time_limit
+
+
     def clean_sim_working_directory(self):
         webdir = self.cleaned_data["sim_working_directory"]
         try:
@@ -58,9 +66,21 @@ class SimulationCaseForm(ModelForm):
         
         return webdir
 
+    def clean(self):
+        cleaned_data = super(SimulationCaseForm, self).clean()
+        sim_time_step = float(cleaned_data.get('sim_time_step'))
+        sim_time_data = float(cleaned_data.get('sim_time_data'))
+        if sim_time_data<sim_time_step:
+            self.add_error('sim_time_data', 'This number must be greater than or equal to Integration Time Step (previous)')
+        
+        sim_output_slice = cleaned_data.get('sim_output_slice')
+        sim_div_number = cleaned_data.get('sim_div_number')
+        if sim_output_slice=="Yes" and sim_div_number<2:
+            self.add_error('sim_div_number', 'If the output file slicing option is chosen, the Number of Slices must be at least 2')
+
 
 class CircuitSchematics(models.Model):
-    ckt_file_path = models.FileField(max_length=300, upload_to='')
+    ckt_file_path = models.FileField(max_length=300, upload_to='', blank=True)
     ckt_file_descrip = models.CharField(max_length=100, default="Sample circuit", verbose_name="Schematic description")
     ckt_file_name = models.CharField(max_length=300)
     ckt_sim_case = models.ForeignKey(SimulationCase)
@@ -70,3 +90,6 @@ class CircuitSchematicsForm(ModelForm):
         model = CircuitSchematics
         fields = ('ckt_file_path', 
                 'ckt_file_descrip')
+    
+#    def clean(self):
+#        cleaned_data = super(CircuitSchematicsForm, self).clean()
