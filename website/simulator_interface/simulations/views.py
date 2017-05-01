@@ -20,12 +20,6 @@ def extract_simulation_case(request):
             sim_para_model = SimulationCase()
     if sim_para_received.is_valid():
         sim_parameters = sim_para_received.cleaned_data
-#        if "sim_id" in request.POST:
-#            sim_id = int(request.POST["sim_id"])
-#            if sim_id>0:
-#                sim_para_model = SimulationCase.objects.get(id=sim_id)
-#            else:
-#                sim_para_model = SimulationCase()
         sim_para_model.sim_title = sim_parameters["sim_title"]
         sim_para_model.sim_descrip = sim_parameters["sim_descrip"]
         sim_para_model.sim_time_limit = sim_parameters["sim_time_limit"]
@@ -62,9 +56,6 @@ def new_simulation(request):
         ckt_schematic_form = []
 
     else:
-        print(request.POST)
-        print
-        print
         if "save_ckt_schematic" in request.POST and request.POST["save_ckt_schematic"]=="Save circuit file":
             if "sim_id" in request.POST:
                 sim_id = int(request.POST["sim_id"])
@@ -91,9 +82,7 @@ def new_simulation(request):
                         ckt_form.add_error('ckt_file_descrip', 'Circuit spreadsheet could not be read. \
                                                         Make sure in same directory as working directory above')
                     ckt_schematic_form.append([[], ckt_form])
-                    print(ckt_form)
-                    print("Testing")
-                    
+
                 else:
                     ckt_file.ckt_file_name = request.POST.getlist(u'ckt_file_path')[0]
                     if u'ckt_file_descrip' in request.POST:
@@ -121,7 +110,6 @@ def new_simulation(request):
 
         elif "save_sim_param" in request.POST and request.POST["save_sim_param"]=="Save Simulation Parameters":
             sim_id, simulation_form = extract_simulation_case(request)
-            print(simulation_form[1])
             ckt_schematic_form = []
             if sim_id>0:
                 sim_para_model = SimulationCase.objects.get(id=sim_id)
@@ -149,26 +137,19 @@ def new_simulation(request):
         else:
             if "sim_id" in request.POST:
                 sim_id = int(request.POST["sim_id"])
-                print(sim_id)
                 if sim_id>0:
                     sim_para_model = SimulationCase.objects.get(id=sim_id)
                     ckt_file_list = sim_para_model.circuitschematics_set.all()
                     list_of_ckt_ids = []
                     for ckt_file_item in ckt_file_list:
-                        list_of_ckt_ids.append("change_ckt_id"+"_"+str(ckt_file_item.id))                
-                    print("Check list")
-                    print(list_of_ckt_ids)
+                        list_of_ckt_ids.append("change_ckt_id"+"_"+str(ckt_file_item.id))
                     if list_of_ckt_ids:
                         for ckt_ids in list_of_ckt_ids:
                             if ckt_ids in request.POST and request.POST[ckt_ids]=="Remove circuit":
                                 for ckt_item_id in list_of_ckt_ids:
                                     if ckt_item_id in request.POST:
-                                        print("Check delete")
-                                        print(ckt_item_id)
                                         del_ckt_id = int(ckt_item_id.split("_")[-1])
-                                        print(del_ckt_id)
                                         del_ckt = CircuitSchematics.objects.get(id=del_ckt_id)
-                                        print(del_ckt.ckt_file_name)
                                         del_ckt.delete()
                                         sim_para_model.save()
 

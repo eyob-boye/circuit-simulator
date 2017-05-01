@@ -102,14 +102,16 @@
 								and add another one using Add circuit button below. <br><br>
 							{% else %}
 								<table>
+									{% for sim_field in sim_item.1 %}
 									<tr>
-										<td>{{ sim_item.1.label }}</td>
-										<td> {{ sim_item.1 }}</td>
+										<td>{{ sim_field.label }}</td>
+										<td> {{ sim_field }}
+										{% if sim_field.errors %}
+											{% for all_sim_errors in sim_field.errors %}
+												<font color="red"> {{ all_sim_errors }} </font>
+											{% endfor %}
+										{% endif %}</td>
 									</tr>
-									{% for all_sim_errors in sim_item.1.errors %}
-										{% for this_sim_errors in all_sim_errors %}
-											<font color="red"> {{ this_sim_error }} </font>
-										{% endfor %}
 									{% endfor %}
 									<tr>
 										<td></td>
