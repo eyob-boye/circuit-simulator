@@ -23,8 +23,6 @@ class SimulationCase(models.Model):
     sim_div_number = models.IntegerField(default=1,
                                         verbose_name="Number of slices")
     sim_working_directory = models.CharField(max_length=300, verbose_name="Directory with circuit files")
-    
-#    sim_circuit_files = models.ForeignKey(CircuitSchematics)
 
     def __unicode__(self):
         return self.sim_title
@@ -85,11 +83,9 @@ class CircuitSchematics(models.Model):
     ckt_file_name = models.CharField(max_length=300)
     ckt_sim_case = models.ForeignKey(SimulationCase)
 
+
 class CircuitSchematicsForm(ModelForm):
     class Meta:
         model = CircuitSchematics
         fields = ('ckt_file_path', 
                 'ckt_file_descrip')
-    
-#    def clean(self):
-#        cleaned_data = super(CircuitSchematicsForm, self).clean()

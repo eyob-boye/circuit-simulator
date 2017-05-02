@@ -12,6 +12,9 @@ def extract_simulation_case(request):
     and saves it in a SimulationCase model object.
     """
     sim_para_received = SimulationCaseForm(request.POST)
+    # sim_id is always returned back and forth between view functions and
+    # template files to keep track of the simulation being run. By default,
+    # sim_id is -1 when a new simulation is created.
     if "sim_id" in request.POST:
         sim_id = int(request.POST["sim_id"])
         if sim_id>0:
@@ -31,16 +34,153 @@ def extract_simulation_case(request):
         sim_para_model.save()
         sim_id = sim_para_model.id
 
+        # simulation_form always has two parts - the simulation model and the form.
+        # Only one will exist and the template file uses this property to display
+        # either the form or just the parameters.
+        # When parameters have been successfully saved, only the model is returned.
         simulation_form = []
         simulation_form.append(sim_para_model)
         simulation_form.append([])
 
     else:
+        # When parameters have not been returned successfully, the form is returned
+        # with errors that have been generated with custom clean methods in the model.
         simulation_form = []
         simulation_form.append([])
         simulation_form.append(sim_para_received)
 
     return [sim_id, simulation_form]
+
+
+def save_simulation_parameters(request):
+    """
+    This function saves the parameters of the simulation. If circuit
+    files already have been added, it will list them or else create
+    an empty circuit spreadsheet form.
+    """
+    # Save simulation parameters.
+    sim_id, simulation_form = extract_simulation_case(request)
+    ckt_schematic_form = []
+    if sim_id>0:
+        sim_para_model = SimulationCase.objects.get(id=sim_id)
+        # If there is no error in the form, only the model will be returned.
+        if not simulation_form[1]:
+            ckt_file_list = sim_para_model.circuitschematics_set.all()
+            # If there are circuit files with the simulation, list them
+            # and let the user add more circuits.
+            if ckt_file_list:
+                for ckt_file_item in ckt_file_list:
+                    ckt_schematic_form.append([ckt_file_item, CircuitSchematicsForm(instance=ckt_file_item)])
+            # If no circuit files, create a blank circuit add form
+            else:
+                ckt_schematic_form.append([[], CircuitSchematicsForm()])
+    
+    return [sim_id, simulation_form, ckt_schematic_form]
+
+
+def save_circuit_schematic(request):
+    """
+    This function saves the circuit spreadsheet details and also
+    runs the check whether the file exists in the working directory
+    and if it is a .csv file.
+    """
+    if "sim_id" in request.POST:
+        sim_id = int(request.POST["sim_id"])
+        if sim_id>0:
+            sim_para_model = SimulationCase.objects.get(id=sim_id)
+
+    # If the circuit schematic function is being processed,
+    # only need to display simulation parameters.
+    simulation_form = []
+    simulation_form.append(sim_para_model)
+    simulation_form.append([])
+    ckt_file_list = sim_para_model.circuitschematics_set.all()
+    ckt_schematic_form = []
+    # Add the existing circuits to the circuit form list.
+    # When the circuit model is added, the template will list
+    # the circuit rather than create a form.
+    for ckt_file_item in ckt_file_list:
+        ckt_schematic_form.append([ckt_file_item, CircuitSchematicsForm(instance=ckt_file_item)])
+
+    # ckt_file_path in request.POST contains the circuit file name because no
+    # upload takes place and only file name is obtained.
+    if u'ckt_file_path' in request.POST:
+        ckt_file = CircuitSchematics()
+        # Add the circuit file to the working directory path
+        received_ckt_file_name = request.POST.getlist(u'ckt_file_path')[0]
+        ckt_full_path = os.path.join(os.sep, sim_para_model.sim_working_directory, received_ckt_file_name)
+        # Try to read the file.
+        try:
+            check_ckt_file = open(ckt_full_path, "r")
+        # If can't be read, it means file doesn't exist in the working directory.
+        except:
+            ckt_form = CircuitSchematicsForm(request.POST)
+            if ckt_form.is_valid():
+                ckt_form.add_error('ckt_file_descrip', 'Circuit spreadsheet could not be read. \
+                                                Make sure it is in same directory as working directory above')
+            ckt_schematic_form.append([[], ckt_form])
+
+        # If it can be read, it could be a genuine file in which case save it.
+        # Or else, it may not be a .csv file, in which case raise an error.
+        else:
+            if len(received_ckt_file_name.split("."))>1 and received_ckt_file_name.split(".")[-1]=="csv":
+                ckt_file.ckt_file_name = received_ckt_file_name
+                if u'ckt_file_descrip' in request.POST:
+                    ckt_file.ckt_file_descrip = request.POST.getlist(u'ckt_file_descrip')[0]
+                ckt_file.ckt_sim_case = sim_para_model
+                ckt_file.save()
+                sim_para_model.save()
+                ckt_schematic_form.append([ckt_file, CircuitSchematicsForm(instance=ckt_file)])
+            else:
+                ckt_form = CircuitSchematicsForm(request.POST)
+                ckt_form.add_error('ckt_file_descrip', 'Circuit schematic must be a .csv file.')
+                ckt_schematic_form.append([[], ckt_form])
+
+    return [sim_id, simulation_form, ckt_schematic_form]
+
+
+def add_circuit_schematic(request):
+    """
+    This function adds a blank circuit schematic form.
+    """
+    if "sim_id" in request.POST:
+        sim_id = int(request.POST["sim_id"])
+        if sim_id>0:
+            sim_para_model = SimulationCase.objects.get(id=sim_id)
+
+    simulation_form = []
+    simulation_form.append(sim_para_model)
+    simulation_form.append([])
+    ckt_file_list = sim_para_model.circuitschematics_set.all()
+    ckt_schematic_form = []
+    # List the existing circuits.
+    for ckt_file_item in ckt_file_list:
+        ckt_schematic_form.append([ckt_file_item, CircuitSchematicsForm(instance=ckt_file_item)])
+    # Add a blank circuit form.
+    ckt_schematic_form.append([[], CircuitSchematicsForm()])
+    
+    return [sim_id, simulation_form, ckt_schematic_form]
+
+
+def edit_simulation_parameters(request):
+    """
+    This function returns the user back to editing the simulation
+    parameters.
+    """
+    if "sim_id" in request.POST:
+        sim_id = int(request.POST["sim_id"])
+        if sim_id>0:
+            sim_para_model = SimulationCase.objects.get(id=sim_id)
+        else:
+            sim_para_model = SimulationCase()
+
+    simulation_form = []
+    simulation_form.append([])
+    simulation_form.append(SimulationCaseForm(instance=sim_para_model))
+    # When editing simulation parameters, don't show any circuits.
+    ckt_schematic_form = []
+
+    return [sim_id, simulation_form, ckt_schematic_form]
 
 
 def index(request):
@@ -49,6 +189,7 @@ def index(request):
 
 def new_simulation(request):
     if not request.method == "POST":
+        # When starting a new simulation, set the sim_id to -1.
         sim_id = -1
         simulation_form = []
         simulation_form.append([])
@@ -57,82 +198,16 @@ def new_simulation(request):
 
     else:
         if "save_ckt_schematic" in request.POST and request.POST["save_ckt_schematic"]=="Save circuit file":
-            if "sim_id" in request.POST:
-                sim_id = int(request.POST["sim_id"])
-                if sim_id>0:
-                    sim_para_model = SimulationCase.objects.get(id=sim_id)
-
-            simulation_form = []
-            simulation_form.append(sim_para_model)
-            simulation_form.append([])
-            ckt_file_list = sim_para_model.circuitschematics_set.all()
-            ckt_schematic_form = []
-            for ckt_file_item in ckt_file_list:
-                ckt_schematic_form.append([ckt_file_item, CircuitSchematicsForm(instance=ckt_file_item)])
-
-            if u'ckt_file_path' in request.POST:
-                ckt_file = CircuitSchematics()
-                received_ckt_file_name = request.POST.getlist(u'ckt_file_path')[0]
-                ckt_full_path = os.path.join(os.sep, sim_para_model.sim_working_directory, received_ckt_file_name)
-                try:
-                    check_ckt_file = open(ckt_full_path, "r")
-                except:
-                    ckt_form = CircuitSchematicsForm(request.POST)
-                    if ckt_form.is_valid():
-                        ckt_form.add_error('ckt_file_descrip', 'Circuit spreadsheet could not be read. \
-                                                        Make sure in same directory as working directory above')
-                    ckt_schematic_form.append([[], ckt_form])
-
-                else:
-                    ckt_file.ckt_file_name = request.POST.getlist(u'ckt_file_path')[0]
-                    if u'ckt_file_descrip' in request.POST:
-                        ckt_file.ckt_file_descrip = request.POST.getlist(u'ckt_file_descrip')[0]
-                    ckt_file.ckt_sim_case = sim_para_model
-                    ckt_file.save()
-                    sim_para_model.save()
-                    ckt_schematic_form.append([ckt_file, CircuitSchematicsForm(instance=ckt_file)])
-
+            sim_id, simulation_form, ckt_schematic_form = save_circuit_schematic(request)
 
         elif "add_ckt_schematic" in request.POST and request.POST["add_ckt_schematic"]=="Add circuit file":
-            if "sim_id" in request.POST:
-                sim_id = int(request.POST["sim_id"])
-                if sim_id>0:
-                    sim_para_model = SimulationCase.objects.get(id=sim_id)
-
-            simulation_form = []
-            simulation_form.append(sim_para_model)
-            simulation_form.append([])
-            ckt_file_list = sim_para_model.circuitschematics_set.all()
-            ckt_schematic_form = []
-            for ckt_file_item in ckt_file_list:
-                ckt_schematic_form.append([ckt_file_item, CircuitSchematicsForm(instance=ckt_file_item)])
-            ckt_schematic_form.append([[], CircuitSchematicsForm()])
+            sim_id, simulation_form, ckt_schematic_form = add_circuit_schematic(request)
 
         elif "save_sim_param" in request.POST and request.POST["save_sim_param"]=="Save Simulation Parameters":
-            sim_id, simulation_form = extract_simulation_case(request)
-            ckt_schematic_form = []
-            if sim_id>0:
-                sim_para_model = SimulationCase.objects.get(id=sim_id)
-                if not simulation_form[1]:
-                    ckt_file_list = sim_para_model.circuitschematics_set.all()
-                    if ckt_file_list:
-                        for ckt_file_item in ckt_file_list:
-                            ckt_schematic_form.append([ckt_file_item, CircuitSchematicsForm(instance=ckt_file_item)])
-                    else:
-                        ckt_schematic_form.append([[], CircuitSchematicsForm()])
+            sim_id, simulation_form, ckt_schematic_form = save_simulation_parameters(request)
 
         elif "edit_sim_param" in request.POST and request.POST["edit_sim_param"]=="Edit Simulation Parameters":
-            if "sim_id" in request.POST:
-                sim_id = int(request.POST["sim_id"])
-                if sim_id>0:
-                    sim_para_model = SimulationCase.objects.get(id=sim_id)
-                else:
-                    sim_para_model = SimulationCase()
-
-            simulation_form = []
-            simulation_form.append([])
-            simulation_form.append(SimulationCaseForm(instance=sim_para_model))
-            ckt_schematic_form = []
+            sim_id, simulation_form, ckt_schematic_form = edit_simulation_parameters(request)
 
         else:
             if "sim_id" in request.POST:
@@ -140,13 +215,13 @@ def new_simulation(request):
                 if sim_id>0:
                     sim_para_model = SimulationCase.objects.get(id=sim_id)
                     ckt_file_list = sim_para_model.circuitschematics_set.all()
-                    list_of_ckt_ids = []
+                    ckt_ids_for_removal = []
                     for ckt_file_item in ckt_file_list:
-                        list_of_ckt_ids.append("change_ckt_id"+"_"+str(ckt_file_item.id))
-                    if list_of_ckt_ids:
-                        for ckt_ids in list_of_ckt_ids:
+                        ckt_ids_for_removal.append("change_ckt_id"+"_"+str(ckt_file_item.id))
+                    if ckt_ids_for_removal:
+                        for ckt_ids in ckt_ids_for_removal:
                             if ckt_ids in request.POST and request.POST[ckt_ids]=="Remove circuit":
-                                for ckt_item_id in list_of_ckt_ids:
+                                for ckt_item_id in ckt_ids_for_removal:
                                     if ckt_item_id in request.POST:
                                         del_ckt_id = int(ckt_item_id.split("_")[-1])
                                         del_ckt = CircuitSchematics.objects.get(id=del_ckt_id)
@@ -158,8 +233,11 @@ def new_simulation(request):
                                 simulation_form.append([])
                                 ckt_file_list = sim_para_model.circuitschematics_set.all()
                                 ckt_schematic_form = []
-                                for ckt_file_item in ckt_file_list:
-                                    ckt_schematic_form.append([ckt_file_item, CircuitSchematicsForm(instance=ckt_file_item)])
+                                if ckt_file_list:
+                                    for ckt_file_item in ckt_file_list:
+                                        ckt_schematic_form.append([ckt_file_item, CircuitSchematicsForm(instance=ckt_file_item)])
+                                else:
+                                    ckt_schematic_form.append([[], CircuitSchematicsForm()])
 
     return render(request,
             "new_simulation.html",
