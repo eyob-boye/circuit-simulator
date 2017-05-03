@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+
+{% extends "base_framework.html" %}
+
+<head>
+	<title>
+	</title>
+</head>
+
+<body>
+	<br><br>
+	{% block main_body_content %}
+		<form action="" method="post">
+		{% if simulation_form.0 %}
+			<p style="font-size:150%; font-weight:bold">Simulation Parameters</p>
+			<table>
+				<tr style="padding:15px">
+					<td style="text-align:left; padding:5px; font-weight:bold">Simulation title: </td>
+					<td>{{ simulation_form.0.sim_title }}</td>
+				</tr>
+				<tr style="padding:15px">
+					<td style="text-align:left; padding:5px; font-weight:bold">Simulation description: </td>
+					<td>{{ simulation_form.0.sim_descrip }}</td>
+				</tr>
+				<tr style="padding:15px">
+					<td style="text-align:left; padding:5px; font-weight:bold">Time duration: </td>
+					<td>{{ simulation_form.0.sim_time_limit }}</td>
+				</tr>
+				<tr style="padding:15px">
+					<td style="text-align:left; padding:5px; font-weight:bold">Integration time step: </td>
+					<td>{{ simulation_form.0.sim_time_step }}</td>
+				</tr>
+				<tr style="padding:15px">
+					<td style="text-align:left; padding:5px; font-weight:bold">Time step of data storage: </td>
+					<td>{{ simulation_form.0.sim_time_data }}</td>
+				</tr>
+				<tr style="padding:15px">
+					<td style="text-align:left; padding:5px; font-weight:bold">Output data file: </td>
+					<td>{{ simulation_form.0.sim_output_file }}</td>
+				</tr>
+				<tr style="padding:15px">
+					<td style="text-align:left; padding:5px; font-weight:bold">Slice the output file?: </td>
+					<td>{{ simulation_form.0.sim_output_slice }}</td>
+				</tr>
+				<tr style="padding:15px">
+					<td style="text-align:left; padding:5px; font-weight:bold">Number of slices: </td>
+					<td>{{ simulation_form.0.sim_div_number }}</td>
+				</tr>
+				<tr style="padding:15px">
+					<td style="text-align:left; padding:5px; font-weight:bold">Directory with circuit files: </td>
+					<td>{{ simulation_form.0.sim_working_directory }}</td>
+				</tr>
+			</table>
+			<br>
+			<input type="submit" name="edit_sim_param" value="Edit Simulation Parameters">
+			<br> <br>
+		{% endif %}
+		
+		{% if simulation_form.1 %}
+			{% if simulation_form.1.errors %}
+				<p style="color:red; font-size:200%"> There are errors in the form! </p>
+			{% endif %}
+			<table>
+				{% for sim_item in simulation_form.1 %}
+					<tr>
+						<td>{{ sim_item.label }}</td>
+						<td>{{ sim_item }}
+						{% if sim_item.errors %}
+							{% for sim_errors in sim_item.errors %}
+								<font color="red"> {{ sim_errors }} </font>
+							{% endfor %}
+						{% endif %}</td>
+					</tr>
+				{% endfor %}
+			</table>
+			<br>
+			<input type="submit" name="save_sim_param" value="Save Simulation Parameters">
+			<br> <br>
+			<input type="submit" name="main_page" value="Back to main page">
+		{% endif %}
+		
+
+		<input type="hidden" name="sim_id" value="{{ sim_id }}">
+		<input type="hidden" name="sim_state" value="{{ sim_state }}">
+		{% csrf_token %}
+		</form>
+	{% endblock %}
+</body>

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+
+{% extends "base_framework.html" %}
+
+<head>
+	<title>
+	</title>
+</head>
+
+<body>
+	<br><br>
+	{% block main_body_content %}
+		<form action="" method="post">
+		
+		{% if ckt_schematic_form %}
+			<p>Browse your computer and upload the circuit schematic spreadsheets (.csv) files. All the schematics must be in the same directory 
+			as the working directory above.</p>
+			<table>
+				{% for sim_item in ckt_schematic_form %}
+					<tr>
+						<td style="text-align:left; padding:25px"> {{ forloop.counter }}. </td>
+						<td>
+							{% if sim_item.0 %}
+								<table>
+									<tr style="padding:15px">
+										<td>File name: </td>
+										<td>{{ sim_item.0.ckt_file_name }}</td>
+									</tr>
+									<tr>
+										<td>File description:</td>
+										<td>{{ sim_item.0.ckt_file_descrip }}</td>
+									</tr>
+								</table>
+								{% for sim_error_item in sim_item.1 %}
+									{% if sim_error_item %}
+										{% for all_sim_errors in sim_error_item.errors %}
+												<font color="red"> {{ all_sim_errors }} </font> <br>
+										{% endfor %}
+									{% endif %}
+								{% endfor %}
+								Want to change this file? Click
+								<input type="submit" name="change_ckt_id_{{ sim_item.0.id }}" Value="Remove circuit"> <br>
+								and add another one using Add circuit button below. <br><br>
+							{% else %}
+								<table>
+									{% for sim_field in sim_item.1 %}
+									<tr>
+										<td>{{ sim_field.label }}</td>
+										<td> {{ sim_field }}
+										{% if sim_field.errors %}
+											{% for all_sim_errors in sim_field.errors %}
+												<font color="red"> {{ all_sim_errors }} </font>
+											{% endfor %}
+										{% endif %}</td>
+									</tr>
+									{% endfor %}
+									<tr>
+										<td></td>
+										<td><input type="submit" name="save_ckt_schematic" value="Save circuit file"></td>
+									</tr>
+								</table>
+							{% endif %}
+						</td>
+					</tr>
+				{% endfor %}
+			</table>
+			<br>
+			<input type="submit" name="add_ckt_schematic" value="Add circuit file">
+			Use this button to add circuit schematic spreadsheets.
+			<br> <br>
+			<input type="submit" name="process_ckt_schematics" value="Process circuit schematics">
+			<br> <br>
+			<input type="submit" name="main_page" value="Back to main page">
+		{% endif %}
+		<input type="hidden" name="sim_id" value="{{ sim_id }}">
+		<input type="hidden" name="sim_state" value="{{ sim_state }}">
+		{% csrf_token %}
+		</form>
+	{% endblock %}
+</body>
