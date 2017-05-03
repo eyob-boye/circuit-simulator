@@ -14,23 +14,23 @@ def scrub_elements(x, row, col):
     may have been added while generating the csv file. 
     """
 
-
-    if x[row][col]:
-        if "\n" in x[row][col]:
-            x[row][col] = x[row][col][:-1]
-            
-        if "\r" in x[row][col]:
-            x[row][col] = x[row][col][:-1]
-            
-        if len(x[row][col])>1:
-            while (x[row][col][0]=='"' or x[row][col][0]=="'"): 
-                x[row][col] = x[row][col][1:]
-            while (x[row][col][-1]=='"' or x[row][col][-1]=="'"):
-                x[row][col] = x[row][col][:-1]            
-            while (x[row][col][0]==' ' or x[row][col][0]==" "): 
-                x[row][col] = x[row][col][1:]
-            while (x[row][col][-1]==' ' or x[row][col][-1]==" "):
-                x[row][col] = x[row][col][:-1]
+    x[row][col] = x[row][col].strip()
+#    if x[row][col]:
+#        if "\n" in x[row][col]:
+#            x[row][col] = x[row][col][:-1]
+#            
+#        if "\r" in x[row][col]:
+#            x[row][col] = x[row][col][:-1]
+#            
+#        if len(x[row][col])>1:
+#            while (x[row][col][0]=='"' or x[row][col][0]=="'"): 
+#                x[row][col] = x[row][col][1:]
+#            while (x[row][col][-1]=='"' or x[row][col][-1]=="'"):
+#                x[row][col] = x[row][col][:-1]            
+#            while (x[row][col][0]==' ' or x[row][col][0]==" "): 
+#                x[row][col] = x[row][col][1:]
+#            while (x[row][col][-1]==' ' or x[row][col][-1]==" "):
+#                x[row][col] = x[row][col][:-1]
         
     return
 
