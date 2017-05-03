@@ -13,25 +13,8 @@ def scrub_elements(x, row, col):
     and also carriage returns (\n) that
     may have been added while generating the csv file. 
     """
-
     x[row][col] = x[row][col].strip()
-#    if x[row][col]:
-#        if "\n" in x[row][col]:
-#            x[row][col] = x[row][col][:-1]
-#            
-#        if "\r" in x[row][col]:
-#            x[row][col] = x[row][col][:-1]
-#            
-#        if len(x[row][col])>1:
-#            while (x[row][col][0]=='"' or x[row][col][0]=="'"): 
-#                x[row][col] = x[row][col][1:]
-#            while (x[row][col][-1]=='"' or x[row][col][-1]=="'"):
-#                x[row][col] = x[row][col][:-1]            
-#            while (x[row][col][0]==' ' or x[row][col][0]==" "): 
-#                x[row][col] = x[row][col][1:]
-#            while (x[row][col][-1]==' ' or x[row][col][-1]==" "):
-#                x[row][col] = x[row][col][:-1]
-        
+
     return
 
 
@@ -48,17 +31,19 @@ def csv_reader(csv_file):
     nw_matrix = []
     for line in csv_file:
         nw_matrix.append(line.split(","))
-    
+
     nw_rows = len(nw_matrix)
     nw_columns = len(nw_matrix[0])
-    
 
     # Remove the leading and trailing quotes
     # and carriage returns
     for c1 in range(0, nw_rows):
         for c2 in range(0, nw_columns):
             scrub_elements(nw_matrix, c1, c2)
-        
+            print nw_matrix[c1][c2],
+        print
+    print
+    print
     return nw_matrix
 
 
