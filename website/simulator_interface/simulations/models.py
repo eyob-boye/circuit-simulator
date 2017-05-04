@@ -43,6 +43,8 @@ class SimulationCaseForm(ModelForm):
         widgets = {
             'sim_title': forms.TextInput(attrs={'size': 80}),
             'sim_descrip': forms.Textarea(attrs={'rows': 15, 'cols': 80}),
+            'sim_output_file': forms.TextInput(attrs={'size': 50}),
+            'sim_working_directory': forms.TextInput(attrs={'size': 80}),
             }
 
     def clean_sim_time_limit(self):

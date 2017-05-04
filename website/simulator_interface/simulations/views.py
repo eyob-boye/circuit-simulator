@@ -3,6 +3,7 @@ from django.http import HttpResponse
 from django.forms.models import model_to_dict
 from models import SimulationCase, SimulationCaseForm, CircuitSchematics, CircuitSchematicsForm
 import os
+import network_reader as NwRdr
 
 # Create your views here.
 
@@ -83,6 +84,42 @@ def save_simulation_parameters(request):
     return [sim_id, sim_state, simulation_form, ckt_schematic_form]
 
 
+def check_circuit_errors(sim_para_model):
+    ckt_file_list = sim_para_model.circuitschematics_set.all()
+    ckt_schematic_form = []
+    ckt_errors = 0
+    # List the existing circuits.
+    for ckt_file_item in ckt_file_list:
+        ckt_item_dict = model_to_dict(ckt_file_item)
+        ckt_item_form = CircuitSchematicsForm(ckt_item_dict, instance=ckt_file_item)
+        ckt_full_path = os.path.join(os.sep, sim_para_model.sim_working_directory, ckt_file_item.ckt_file_name)
+
+        # Try to read the file.
+        try:
+            check_ckt_file = open(ckt_full_path, "r")
+        # If can't be read, it means file doesn't exist in the working directory.
+        except:
+
+            if ckt_item_form.is_valid():
+                ckt_item_form.add_error('ckt_file_descrip', 'Circuit spreadsheet could not be read. \
+                                                Make sure it is in same directory as working directory above')
+                ckt_errors = 1
+
+            ckt_schematic_form.append([ckt_file_item, ckt_item_form])
+
+        # If it can be read, it could be a genuine file in which case save it.
+        # Or else, it may not be a .csv file, in which case raise an error.
+        else:
+            if len(ckt_file_item.ckt_file_name.split("."))>1 and ckt_file_item.ckt_file_name.split(".")[-1]=="csv":
+                ckt_schematic_form.append([ckt_file_item, CircuitSchematicsForm(instance=ckt_file_item)])
+            else:
+                ckt_item_form.add_error('ckt_file_descrip', 'Circuit schematic must be a .csv file.')
+                ckt_schematic_form.append([[], ckt_item_form])
+                ckt_errors = 1
+
+    return [ckt_schematic_form, ckt_errors]
+
+
 def save_circuit_schematic(request):
     """
     This function saves the circuit spreadsheet details and also
@@ -102,36 +139,8 @@ def save_circuit_schematic(request):
     simulation_form = []
     simulation_form.append(sim_para_model)
     simulation_form.append([])
-    ckt_file_list = sim_para_model.circuitschematics_set.all()
-    ckt_schematic_form = []
-    # Add the existing circuits to the circuit form list.
-    # When the circuit model is added, the template will list
-    # the circuit rather than create a form.
-    for ckt_file_item in ckt_file_list:
-        ckt_item_dict = model_to_dict(ckt_file_item)
-        ckt_item_form = CircuitSchematicsForm(ckt_item_dict, instance=ckt_file_item)
-        ckt_full_path = os.path.join(os.sep, sim_para_model.sim_working_directory, ckt_file_item.ckt_file_name)
-
-        # Try to read the file.
-        try:
-            check_ckt_file = open(ckt_full_path, "r")
-        # If can't be read, it means file doesn't exist in the working directory.
-        except:
-
-            if ckt_item_form.is_valid():
-                ckt_item_form.add_error('ckt_file_descrip', 'Circuit spreadsheet could not be read. \
-                                                Make sure it is in same directory as working directory above')
-
-            ckt_schematic_form.append([ckt_file_item, ckt_item_form])
-
-        # If it can be read, it could be a genuine file in which case save it.
-        # Or else, it may not be a .csv file, in which case raise an error.
-        else:
-            if len(ckt_file_item.ckt_file_name.split("."))>1 and ckt_file_item.ckt_file_name.split(".")[-1]=="csv":
-                ckt_schematic_form.append([ckt_file_item, CircuitSchematicsForm(instance=ckt_file_item)])
-            else:
-                ckt_item_form.add_error('ckt_file_descrip', 'Circuit schematic must be a .csv file.')
-                ckt_schematic_form.append([[], ckt_item_form])
+    
+    ckt_schematic_form, ckt_errors = check_circuit_errors(sim_para_model)
 
     # ckt_file_path in request.POST contains the circuit file name because no
     # upload takes place and only file name is obtained.
@@ -167,7 +176,7 @@ def save_circuit_schematic(request):
                 ckt_form.add_error('ckt_file_descrip', 'Circuit schematic must be a .csv file.')
                 ckt_schematic_form.append([[], ckt_form])
 
-    return [sim_id, sim_state, ckt_schematic_form]
+    return [sim_id, sim_state, ckt_schematic_form, ckt_errors]
 
 
 def add_circuit_schematic(request):
@@ -185,40 +194,14 @@ def add_circuit_schematic(request):
     simulation_form = []
     simulation_form.append(sim_para_model)
     simulation_form.append([])
-    ckt_file_list = sim_para_model.circuitschematics_set.all()
 
-    ckt_schematic_form = []
-    # List the existing circuits.
-    for ckt_file_item in ckt_file_list:
-        ckt_item_dict = model_to_dict(ckt_file_item)
-        ckt_item_form = CircuitSchematicsForm(ckt_item_dict, instance=ckt_file_item)
-        ckt_full_path = os.path.join(os.sep, sim_para_model.sim_working_directory, ckt_file_item.ckt_file_name)
+    ckt_schematic_form, ckt_errors = check_circuit_errors(sim_para_model)
 
-        # Try to read the file.
-        try:
-            check_ckt_file = open(ckt_full_path, "r")
-        # If can't be read, it means file doesn't exist in the working directory.
-        except:
-
-            if ckt_item_form.is_valid():
-                ckt_item_form.add_error('ckt_file_descrip', 'Circuit spreadsheet could not be read. \
-                                                Make sure it is in same directory as working directory above')
-
-            ckt_schematic_form.append([ckt_file_item, ckt_item_form])
-
-        # If it can be read, it could be a genuine file in which case save it.
-        # Or else, it may not be a .csv file, in which case raise an error.
-        else:
-            if len(ckt_file_item.ckt_file_name.split("."))>1 and ckt_file_item.ckt_file_name.split(".")[-1]=="csv":
-                ckt_schematic_form.append([ckt_file_item, CircuitSchematicsForm(instance=ckt_file_item)])
-            else:
-                ckt_item_form.add_error('ckt_file_descrip', 'Circuit schematic must be a .csv file.')
-                ckt_schematic_form.append([[], ckt_item_form])
-#        ckt_schematic_form.append([ckt_file_item, CircuitSchematicsForm(instance=ckt_file_item)])
     # Add a blank circuit form.
     ckt_schematic_form.append([[], CircuitSchematicsForm()])
     
-    return [sim_id, sim_state, ckt_schematic_form]
+    return [sim_id, sim_state, ckt_schematic_form, ckt_errors]
+
 
 def edit_simulation_parameters(request):
     """
@@ -240,6 +223,37 @@ def edit_simulation_parameters(request):
     simulation_form.append(SimulationCaseForm(instance=sim_para_model))
 
     return [sim_id, sim_state, simulation_form]
+
+
+
+def process_circuit_schematics(sim_para_model):
+    ckt_file_list = sim_para_model.circuitschematics_set.all()
+    nw_input = []
+    conn_ckt_mat = []
+    if ckt_file_list:
+        for ckt_file_item in ckt_file_list:
+            nw_input.append(ckt_file_item.ckt_file_name.split(".csv")[0])
+            full_file_path = os.path.join(os.sep, sim_para_model.sim_working_directory, ckt_file_item.ckt_file_name)
+            ckt_file_object = open(full_file_path, "r")
+            # Read the circuit into conn_ckt_mat
+            # Also performs a scrubbing of circuit spreadsheet
+            conn_ckt_mat.append(NwRdr.csv_reader(ckt_file_object))
+
+    # Making a list of the type of components in the 
+    # circuit.
+    components_found, component_objects, ckt_error_list = \
+            NwRdr.determine_circuit_components(conn_ckt_mat, nw_input)
+    
+    # Segregating the elements in the circuit as those
+    # having source voltages, meters and those that can be
+    # controlled.
+    if not ckt_error_list:
+        bundled_list_of_elements = NwRdr.classify_components(components_found, component_objects)
+        source_list = bundled_list_of_elements[0]
+        meter_list = bundled_list_of_elements[1]
+        controlled_elements = bundled_list_of_elements[2]
+    
+    return
 
 
 def index(request):
@@ -264,30 +278,37 @@ def new_simulation(request):
     else:
 
         if "save_ckt_schematic" in request.POST and request.POST["save_ckt_schematic"]=="Save circuit file":
-            sim_id, sim_state, ckt_schematic_form = save_circuit_schematic(request)
+            sim_id, sim_state, ckt_schematic_form, ckt_errors = save_circuit_schematic(request)
             if sim_state==1:
                 sim_state = 2
             return render(request,
                 "edit_circuit_schematic.html",
                 {'sim_id' : sim_id,
                 'sim_state' : sim_state,
-                'ckt_schematic_form' : ckt_schematic_form})
+                'ckt_schematic_form' : ckt_schematic_form,
+                'ckt_errors' : ckt_errors})
             
 
         elif "add_ckt_schematic" in request.POST and request.POST["add_ckt_schematic"]=="Add circuit file":
-            sim_id, sim_state, ckt_schematic_form = add_circuit_schematic(request)
+            sim_id, sim_state, ckt_schematic_form, ckt_errors = add_circuit_schematic(request)
             if sim_state==1:
                 sim_state = 2
             return render(request,
                 "edit_circuit_schematic.html",
                 {'sim_id' : sim_id,
                 'sim_state' : sim_state,
-                'ckt_schematic_form' : ckt_schematic_form})
+                'ckt_schematic_form' : ckt_schematic_form,
+                'ckt_errors' : ckt_errors})
 
         elif "save_sim_param" in request.POST and request.POST["save_sim_param"]=="Save Simulation Parameters":
             sim_id, sim_state, simulation_form, ckt_schematic_form = save_simulation_parameters(request)
             if sim_state==1:
                 sim_state = 2
+            return render(request,
+                    "edit_simulation.html",
+                    {'sim_id' : sim_id,
+                    'sim_state' : sim_state,
+                    'simulation_form' : simulation_form})
 
         elif "edit_sim_param" in request.POST and request.POST["edit_sim_param"]=="Edit Simulation Parameters":
             sim_id, sim_state, simulation_form = edit_simulation_parameters(request)
@@ -324,7 +345,36 @@ def new_simulation(request):
                     {'sim_id' : sim_id,
                     'sim_state' : sim_state,
                     'error_codes' : error_codes})
-        
+
+        elif "process_ckt_schematics" in request.POST and request.POST["process_ckt_schematics"]=="Process circuit schematics":
+            error_codes = []
+            if "sim_id" in request.POST:
+                sim_id = int(request.POST["sim_id"])
+                if sim_id<0:
+                    if 2 not in error_codes:
+                        error_codes.append(2)
+                    sim_para_model = SimulationCase()
+                else:
+                    sim_para_model = SimulationCase.objects.get(id=sim_id)
+
+            if "sim_state" in request.POST:
+                sim_state = int(request.POST["sim_state"])
+
+            ckt_errors = 0
+            ckt_file_list = sim_para_model.circuitschematics_set.all()
+            ckt_schematic_form = []
+            if ckt_file_list:
+                for ckt_file_item in ckt_file_list:
+                    ckt_schematic_form.append([ckt_file_item, CircuitSchematicsForm(instance=ckt_file_item)])
+
+            process_circuit_schematics(sim_para_model)
+
+            return render(request,
+                "edit_circuit_schematic.html",
+                {'sim_id' : sim_id,
+                'sim_state' : sim_state,
+                'ckt_schematic_form' : ckt_schematic_form,
+                'ckt_errors' : ckt_errors})
 
         else:
             if "sim_id" in request.POST:

@@ -32,18 +32,12 @@ def csv_reader(csv_file):
     for line in csv_file:
         nw_matrix.append(line.split(","))
 
-    nw_rows = len(nw_matrix)
-    nw_columns = len(nw_matrix[0])
-
     # Remove the leading and trailing quotes
     # and carriage returns
-    for c1 in range(0, nw_rows):
-        for c2 in range(0, nw_columns):
+    for c1 in range(len(nw_matrix)):
+        for c2 in range(len(nw_matrix[c1])):
             scrub_elements(nw_matrix, c1, c2)
-            print nw_matrix[c1][c2],
-        print
-    print
-    print
+
     return nw_matrix
 
 
@@ -405,8 +399,8 @@ def jump_checking(x_matrix, x_jump, sheet, row, col, no_of_rows, no_of_cols, nw_
     curr_element = {"exist":0, "jump":1}
     # Determine if it is a jump label
     jump_sanity(x_matrix, curr_element, sheet, row, col)
-    
-    
+    jump_error_list = []
+
     if ("jump" in curr_element):
         # If so, what is the element in the same column
         # and next row
@@ -443,61 +437,73 @@ def jump_checking(x_matrix, x_jump, sheet, row, col, no_of_rows, no_of_cols, nw_
     # Check if two jumps are next to each other
         if ("jump" in next_row_element or "jump" in next_col_element or \
             "jump" in prev_row_element or "jump" in prev_col_element):
-            print
-            print "*"*40
-            print "Check at %s in %s" %(csv_element_2D([row, col]), nw_input[sheet]+".csv")
-            raise CktEx.AdjacentJumpError
-        
-        
+            jump_error_list.append("Check at "+csv_element_2D([row, col])+" in "+nw_input[sheet]+".csv. \
+                    Circuit Error: Jump label is adjacent to a node.")
+#            print
+#            print "*"*40
+#            print "Check at %s in %s" %(csv_element_2D([row, col]), nw_input[sheet]+".csv")
+#            raise CktEx.AdjacentJumpError
+
         if not (next_row_element or prev_row_element or next_col_element or prev_col_element):
-            print
-            print "*"*40
-            print "Check branch continuity next to jump label %s at %s in %s" \
-            %(x_matrix[sheet][row][col], csv_element_2D([row, col]), nw_input[sheet]+".csv")
-            raise CktEx.BrokenBranchError            
+            jump_error_list.append("Check branch continuity next to jump label "+\
+                    x_matrix[sheet][row][col]+" at "+csv_element_2D([row, col])+\
+                    " in "+nw_input[sheet]+".csv. Circuit Error: Branch is broken. Must close all branches.")
+#            print
+#            print "*"*40
+#            print "Check branch continuity next to jump label %s at %s in %s" \
+#            %(x_matrix[sheet][row][col], csv_element_2D([row, col]), nw_input[sheet]+".csv")
+#            raise CktEx.BrokenBranchError
 
     # Jump must have only one element adjacent to it.
         if ("exist" in next_row_element):
             if ("exist" in next_col_element or "exist" in prev_row_element or \
                 "exist" in prev_col_element):
-                print
-                print "*"*40
-                print "Check jump at %s in %s" %(csv_element_2D([row, col]), nw_input[sheet]+".csv")
-                raise CktEx.JumpNotExtremeError
+                jump_error_list.append("Check jump at "+csv_element_2D([row, col])+" in "+nw_input[sheet]+".csv. \
+                        Circuit Error: Jump has to be the extreme connector on a branch segment.")
+#                print
+#                print "*"*40
+#                print "Check jump at %s in %s" %(csv_element_2D([row, col]), nw_input[sheet]+".csv")
+#                raise CktEx.JumpNotExtremeError
             else:
                 x_jump.append([sheet, row, col, x_matrix[sheet][row][col], "down"])
 
         elif ("exist" in next_col_element):
             if ("exist" in next_row_element or "exist" in prev_row_element or \
                 "exist" in prev_col_element):
-                print
-                print "*"*40
-                print "Check jump at %s in %s" %(csv_element_2D([row, col]), nw_input[sheet]+".csv")
-                raise CktEx.JumpNotExtremeError
+                jump_error_list.append("Check jump at "+csv_element_2D([row, col])+" in "+nw_input[sheet]+".csv. \
+                        Circuit Error: Jump has to be the extreme connector on a branch segment.")
+#                print
+#                print "*"*40
+#                print "Check jump at %s in %s" %(csv_element_2D([row, col]), nw_input[sheet]+".csv")
+#                raise CktEx.JumpNotExtremeError
             else:
                 x_jump.append([sheet, row, col, x_matrix[sheet][row][col], "right"])
 
         elif ("exist" in prev_row_element):
             if ("exist" in next_row_element or "exist" in next_col_element or \
                 "exist" in prev_col_element):
-                print
-                print "*"*40
-                print "Check jump at %s in %s" %(csv_element_2D([row, col]), nw_input[sheet]+".csv")
-                raise CktEx.JumpNotExtremeError
+                jump_error_list.append("Check jump at "+csv_element_2D([row, col])+" in "+nw_input[sheet]+".csv. \
+                        Circuit Error: Jump has to be the extreme connector on a branch segment.")
+#                print
+#                print "*"*40
+#                print "Check jump at %s in %s" %(csv_element_2D([row, col]), nw_input[sheet]+".csv")
+#                raise CktEx.JumpNotExtremeError
             else:
                 x_jump.append([sheet, row, col, x_matrix[sheet][row][col], "up"])
 
         elif ("exist" in prev_col_element):
             if ("exist" in next_row_element or "exist" in next_col_element or \
                 "exist" in prev_row_element):
-                print
-                print "*"*40
-                print "Check jump at %s in %s" %(csv_element_2D([row, col]), nw_input[sheet]+".csv")
-                raise CktEx.JumpNotExtremeError
+                jump_error_list.append("Check jump at "+csv_element_2D([row, col])+" in "+nw_input[sheet]+".csv. \
+                        Circuit Error: Jump has to be the extreme connector on a branch segment.")
+#                print
+#                print "*"*40
+#                print "Check jump at %s in %s" %(csv_element_2D([row, col]), nw_input[sheet]+".csv")
+#                raise CktEx.JumpNotExtremeError
             else:
                 x_jump.append([sheet, row, col, x_matrix[sheet][row][col], "left"])
-        
-    return
+
+    return jump_error_list
 
 
 
@@ -507,70 +513,70 @@ def node_checking(x_mat, x_list, sheet, row, col, x_row, x_col):
     This function tests whether an element of the circuit
     is a node.
     """
-    
+
     if ((row==0 and col==0) or (row==x_row-1 and col==x_col-1) or \
         (row==0 and col==x_col-1) or (row==x_row-1 and col==0)):
-        # If its a corner point it can't be a node. 
+        # If its a corner point it can't be a node.
         # This prevents array index going out of range.
         pass
         # The next cases, can't be outer edges or corner points.
     else:
         if (row==0):
-            # If it is the first row, 
-            # check if the element in the next and 
+            # If it is the first row,
+            # check if the element in the next and
             # previous columns and same row are connected.
             if not (x_mat[sheet][row][col+1]=='' or x_mat[sheet][row][col-1]==''):
-                # Then check if the element in next row and 
+                # Then check if the element in next row and
                 # same column is connected. Look for a T junction.
                 if not (x_mat[sheet][row+1][col]==''):
                     x_list.append([sheet, row, col])
         if (row==x_row-1):
-            # If it is the last row, 
-            # check if the elements in the next and 
+            # If it is the last row,
+            # check if the elements in the next and
             # previous columns and same row are connected.
             if not (x_mat[sheet][row][col+1]=='' or x_mat[sheet][row][col-1]==''):
                 if not (x_mat[sheet][row-1][col]==''):
-                    # Then check if element in the previous row and 
+                    # Then check if element in the previous row and
                     # same column is connected. Look for a T junction.
                     x_list.append([sheet, row, col])
         if (col==0):
-            # If it is the first column, 
-            # check if the element in the next column and 
+            # If it is the first column,
+            # check if the element in the next column and
             # same row is connected.
             if not (x_mat[sheet][row][col+1]==''):
-                # Then check if the elements in next and 
-                # previous row and same column are connected. 
-                # Look for a T junction.
-                if not (x_mat[sheet][row+1][col]=='' or x_mat[sheet][row-1][col]==''):
-                    x_list.append([sheet, row, col])
-        if (col==x_col-1):
-            # If it is the last column, 
-            # check if the element in the previous column and 
-            # same row is connected.
-            if not (x_mat[sheet][row][col-1]==''):
-                # Then check if the elements in next and 
+                # Then check if the elements in next and
                 # previous row and same column are connected.
                 # Look for a T junction.
                 if not (x_mat[sheet][row+1][col]=='' or x_mat[sheet][row-1][col]==''):
                     x_list.append([sheet, row, col])
-        
+        if (col==x_col-1):
+            # If it is the last column,
+            # check if the element in the previous column and
+            # same row is connected.
+            if not (x_mat[sheet][row][col-1]==''):
+                # Then check if the elements in next and
+                # previous row and same column are connected.
+                # Look for a T junction.
+                if not (x_mat[sheet][row+1][col]=='' or x_mat[sheet][row-1][col]==''):
+                    x_list.append([sheet, row, col])
+
         if (row>0 and row<x_row-1 and col>0 and col<x_col-1):
             # If the element is not on the outer boundary
             if (x_mat[sheet][row][col+1]!='' and x_mat[sheet][row][col-1]!=''):
-                # Check if the elements in next and 
+                # Check if the elements in next and
                 # previous columns and same row are connected
                 if (x_mat[sheet][row+1][col]!='' or x_mat[sheet][row-1][col]!=''):
-                    # Then check if elements in either the next and 
+                    # Then check if elements in either the next and
                     # previous row and same column are connected
                     x_list.append([sheet, row, col])
             elif (x_mat[sheet][row+1][col]!='' and x_mat[sheet][row-1][col]!=''):
-                # Check if the elements in next and 
+                # Check if the elements in next and
                 # previous rows and same column are connected
                 if (x_mat[sheet][row][col+1]!='' or x_mat[sheet][row][col-1]!=''):
-                    # Then check if elements in either the next and 
+                    # Then check if elements in either the next and
                     # previous column and same row are connected
-                    x_list.append([sheet, row, col])        
-        
+                    x_list.append([sheet, row, col])
+
     return
 
 
@@ -752,15 +758,15 @@ def determine_nodes_branches(conn_matrix, nw_input):
     contains the network map. Output is the 
     node_list and branch_map between nodes.
     """
-
+    ckt_error_list = []
     conn_sheets = len(conn_matrix)
-    
+
     # List of jumps labels
     jump_list = []
     # Structure of jump_list
     # sheet, row, column, jump_label, direction
-    
-    # Create a dictionary of jumps - 
+
+    # Create a dictionary of jumps -
     # for each jump label - there is a list with two elements.
     jump_matrix = {}
     # Structure of jump_matrix
@@ -772,16 +778,17 @@ def determine_nodes_branches(conn_matrix, nw_input):
     # [sheet, row, column]
 
     for sheet in range(conn_sheets):
-        
+
         conn_rows = len(conn_matrix[sheet])
         conn_columns = len(conn_matrix[sheet][0])
-    
+
         # Check for jump sanity
         for c1 in range(conn_rows):
             for c2 in range(conn_columns):
-                jump_checking(conn_matrix, jump_list, sheet, c1, c2, conn_rows, conn_columns, nw_input)
-    
-    
+                jump_error_list = jump_checking(conn_matrix, jump_list, sheet, c1, c2, conn_rows, conn_columns, nw_input)
+                if jump_error_list:
+                    ckt_error_list.extend(jump_error_list)
+
     for c1 in range(len(jump_list)):
         jump_count = 1
         for c2 in range(len(jump_list)):
@@ -794,19 +801,24 @@ def determine_nodes_branches(conn_matrix, nw_input):
                     jump_count = jump_count+1
 
         if (jump_count<2):
-            print
-            print "*"*40
-            print "Check jump label %s at %s in sheet %s" \
-            %(jump_list[c1][3], csv_element_2D([jump_list[c1][1], jump_list[c1][2]]), nw_input[jump_list[c1][0]]+".csv")
-            raise CktEx.SingleJumpError
+            ckt_error_list.append("Check jump label "+jump_list[c1][3]+" at "+\
+                    csv_element_2D([jump_list[c1][1], jump_list[c1][2]])+" in sheet "+\
+                    nw_input[jump_list[c1][0]]+".csv. Circuit Error: Jump does not have a corresponding jump label.")
+#            print
+#            print "*"*40
+#            print "Check jump label %s at %s in sheet %s" \
+#            %(jump_list[c1][3], csv_element_2D([jump_list[c1][1], jump_list[c1][2]]), nw_input[jump_list[c1][0]]+".csv")
+#            raise CktEx.SingleJumpError
         elif (jump_count>2):
-            print
-            print "*"*40
-            print "Check jump label %s at %s in sheet %s" \
-            %(jump_list[c1][3], csv_element_2D([jump_list[c1][1], jump_list[c1][2]]), nw_input[jump_list[c1][0]]+".csv")
-            del jump_matrix[jump_list[c1][3]]
-            raise CktEx.MultipleJumpError
-
+            ckt_error_list.append("Check jump label "+jump_list[c1][3]+" at "+\
+                    csv_element_2D([jump_list[c1][1], jump_list[c1][2]])+" in sheet "+\
+                    nw_input[jump_list[c1][0]]+".csv. Circuit Error: More than two jumps for the jump label.")
+#            print
+#            print "*"*40
+#            print "Check jump label %s at %s in sheet %s" \
+#            %(jump_list[c1][3], csv_element_2D([jump_list[c1][1], jump_list[c1][2]]), nw_input[jump_list[c1][0]]+".csv")
+#            del jump_matrix[jump_list[c1][3]]
+#            raise CktEx.MultipleJumpError
 
     for sheet in range(conn_sheets):
         conn_rows = len(conn_matrix[sheet])
@@ -815,19 +827,18 @@ def determine_nodes_branches(conn_matrix, nw_input):
             for c2 in range(conn_columns):
                 curr_element = {"exist":0, "jump":1}
                 jump_sanity(conn_matrix, curr_element, sheet, c1, c2)
-    
+
                 if ("exist" in curr_element):
                     node_checking(conn_matrix, node_list, sheet, c1, c2, conn_rows, conn_columns)
                 else:
                     pass
-
 
     # Map of branches between nodes in node_list
     branch_map = []
 
     # Creating a square of the dimension
     # of (node_list) x (node_list).
-    # Each element will be a list of the 
+    # Each element will be a list of the
     # series connection of branches between the nodes.
     for c1 in range(len(node_list)):
         branch_rows = []
@@ -839,7 +850,7 @@ def determine_nodes_branches(conn_matrix, nw_input):
     branch_list=[]
 
     # Generate a search rule for each node.
-    # The concept is to start at a node and 
+    # The concept is to start at a node and
     # search until another node is reached.
     node_iter_rule = []
     for c1 in range(len(node_list)):
@@ -851,7 +862,7 @@ def determine_nodes_branches(conn_matrix, nw_input):
 
         iter_rule={"left":0, "down":1, "right":2, "up":3}
 
-        # For nodes in the outer edges, 
+        # For nodes in the outer edges,
         # the rules going outwards will be removed.
         if (node_row==0):
             del(iter_rule["up"])
@@ -862,32 +873,30 @@ def determine_nodes_branches(conn_matrix, nw_input):
         if (node_column==conn_columns-1):
             del(iter_rule["right"])
 
-        # Depending on the non-existence of elements 
+        # Depending on the non-existence of elements
         # in a direction, those rules will be removed.
         if (node_row>0):
             if (conn_matrix[node_sheet][node_row-1][node_column]==''):
                 del(iter_rule["up"])
-        
+
         if (node_row<conn_rows-1):
             if (conn_matrix[node_sheet][node_row+1][node_column]==''):
                 del(iter_rule["down"])
-        
+
         if (node_column>0):
             if (conn_matrix[node_sheet][node_row][node_column-1]==''):
                 del(iter_rule["left"])
-        
+
         if (node_column<conn_columns-1):
             if (conn_matrix[node_sheet][node_row][node_column+1]==''):
                 del(iter_rule["right"])
-        
-        node_iter_rule.append(iter_rule)
 
+        node_iter_rule.append(iter_rule)
 
     # Check if a jump is not next to a node.
     for c1 in range(len(node_list)):
         for jump_check_dir in node_iter_rule[c1].keys():
             jump_node_check(conn_matrix, node_list, jump_check_dir, c1, nw_input)
-
 
     # For each node in node_list perform the search operation.
     # Each node has a list of possible search rules.
@@ -897,9 +906,9 @@ def determine_nodes_branches(conn_matrix, nw_input):
     # If it is a node, stop.
     # If it is not a node, there can be only two directions of movement.
     # Move in a direction and check if an element exists.
-    # If it exists, check if it is not already an element encountered - 
+    # If it exists, check if it is not already an element encountered -
     # shouldn't be moving backwards.
-    # If a new element is encountered, 
+    # If a new element is encountered,
     # update the element in branch iter and continue.
 
     for c1 in range(len(node_list)):
@@ -936,7 +945,7 @@ def determine_nodes_branches(conn_matrix, nw_input):
 
             # As there cannot be a jump next to a node
             next_node_sheet = node_sheet
-            
+
             # This variable is used when jumps are encountered.
             jump_executed = ""
 
@@ -946,17 +955,17 @@ def determine_nodes_branches(conn_matrix, nw_input):
                 # If a jump is encountered.
                 # Look for the label in the jump_matrix dictionary
                 # Check which element has been encountered.
-                # Check the co-ordinates of the other element and 
+                # Check the co-ordinates of the other element and
                 # the sense of movement.
-                # Depending on the sense of movement, update 
+                # Depending on the sense of movement, update
                 # the new co-ordinates with respect
                 # to the other element
-                # Add a flag to show which direction movement 
+                # Add a flag to show which direction movement
                 # has taken place
-                # To ensure that we don't go back 
+                # To ensure that we don't go back
                 # from the next element after the jump.
                 next_element = [next_node_sheet, next_node_row, next_node_column]
-                
+
                 jump_executed, next_node_sheet, next_node_row, next_node_column = \
                 branch_jump(conn_matrix, jump_matrix, next_element)
 
@@ -966,7 +975,6 @@ def determine_nodes_branches(conn_matrix, nw_input):
                 jump_executed, next_node_sheet, next_node_row, next_node_column = \
                     branch_advance(conn_matrix, branch_iter, next_element, \
                                 jump_executed)
-
 
                 # If no advancement is possible, it means circuit is broken.
                 # Can improve on this error message later.
@@ -978,12 +986,11 @@ def determine_nodes_branches(conn_matrix, nw_input):
                     %(csv_element_2D([next_node_row, next_node_column]), nw_input[next_node_sheet]+".csv")
                     raise CktEx.BrokenBranchError
 
-
             else:
                 branch_iter.append([next_node_sheet, next_node_row, next_node_column])
                 next_elem_index = node_list.index([next_node_sheet, next_node_row, next_node_column])
                 branch_map[c1][next_elem_index].append(branch_iter)
-        
+
     return [node_list, branch_map]
 
 
@@ -1515,19 +1522,15 @@ def determine_circuit_components(conn_matrix, nw_input):
     This function reads the components from the circuit
     matrix.
     """
-
+    ckt_error_list = []
     components_found = {}
-    
+
     for sheet in range(len(conn_matrix)):
         for c1 in range(len(conn_matrix[sheet])):
             for c2 in range(len(conn_matrix[sheet][0])):
                 elem = conn_matrix[sheet][c1][c2]
                 if elem:
-                    while elem[0]==" ":
-                        elem = elem[1:]
-                    while elem[-1]==" ":
-                        elem = elem[:-1]
-        
+                    elem = elem.strip()
                     # wire is a zero resistance connection
                     if elem.lower()[:4]!="wire":
                         if len(elem.split("_"))==1:
@@ -1536,11 +1539,9 @@ def determine_circuit_components(conn_matrix, nw_input):
                                 if jump_det.lower()[0:4]=="jump":
                                     pass
                                 else:
-                                    print
-                                    print
-                                    print "Error! Component at %s in sheet %s does not have a unique name/tag." \
-                                    %(csv_element_2D([c1, c2]), nw_input[sheet]+".csv")
-                                    raise CktEx.MissingComponentTagError
+                                    ckt_error_list.append("Error! Component at "+csv_element_2D([c1, c2])+\
+                                            " in sheet "+nw_input[sheet]+".csv"+" does not have a unique name/tag.")
+
         ## Not sure if the check below is needed.
         ## A tag could be less than three characters.
         ##                    else:
@@ -1548,52 +1549,41 @@ def determine_circuit_components(conn_matrix, nw_input):
                         else:
                             [elem_name, elem_tag] = elem.split("_")
                             elem_type = elem_name.lower()
-                            while elem_type[0]==" ":
-                                elem_type = elem_type[1:]
-                            while elem_type[-1]==" ":
-                                elem_type = elem_type[:-1]
-                            while elem_tag[0]==" ":
-                                elem_tag = elem_tag[1:]
-                            while elem_tag[-1]==" ":
-                                elem_tag = elem_tag[:-1]
-        
-                            # Check if component exists
-                            if elem_type in CktElem.component_list.keys():
-                                # If found for the first time
-                                # Create that dictionary element with key
-                                # as component type
-                                if elem_type not in components_found:
-                                    components_found[elem_type] = [[csv_element([sheet, c1, c2]), elem_tag]]
+                            elem_type = elem_type.strip()
+                            elem_tag = elem_tag.strip()
+                            if elem_tag:
+                                # Check if component exists
+                                if elem_type in CktElem.component_list.keys():
+                                    # If found for the first time
+                                    # Create that dictionary element with key
+                                    # as component type
+                                    if elem_type not in components_found:
+                                        components_found[elem_type] = [[csv_element([sheet, c1, c2]), elem_tag]]
+                                    else:
+                                        # If already found, append it to
+                                        # dictionary item with that key.
+                                        components_found[elem_type].append([csv_element([sheet, c1, c2]), elem_tag])
                                 else:
-                                    # If already found, append it to
-                                    # dictionary item with that key.
-                                    components_found[elem_type].append([csv_element([sheet, c1, c2]), elem_tag])
+                                    ckt_error_list.append("Error! Component at "+csv_element_2D([c1, c2])+\
+                                            " in sheet "+nw_input[sheet]+".csv"+" doesn't exist.")
                             else:
-                                print
-                                print
-                                print "Error! Component at %s in sheet %s doesn't exist." %(csv_element_2D([c1, c2]), nw_input[sheet]+".csv")
-                                raise CktEx.UnidentifiedComponentError
+                                ckt_error_list.append("Error! Component at "+csv_element_2D([c1, c2])+\
+                                            " in sheet "+nw_input[sheet]+".csv"+" does not have a unique name/tag.")
 
-    
     # Check if a component of the same type has the same tag.
     for items in components_found.keys():
         for c1 in range(len(components_found[items])):
             for c2 in range(len(components_found[items])):
                 if c1!=c2:
                     if components_found[items][c1][1]==components_found[items][c2][1]:
-                        print
-                        print
-                        print "Duplicate labels found for components of type %s at %s in sheet %s and %s in sheet %s" \
-                        %(items, csv_element_truncate(components_found[items][c1][0]), \
-                        nw_input[csv_element_extract(components_found[items][c1][0])]+".csv", \
-                        csv_element_truncate(components_found[items][c2][0]), \
-                        nw_input[csv_element_extract(components_found[items][c2][0])]+".csv")
-                        
-                        raise CktEx.DuplicateComponentLabelError
-    
-    
+                        ckt_error_list.append("Duplicate labels found for components of type "+items+\
+                                " at "+csv_element_truncate(components_found[items][c1][0])+\
+                                " in sheet "+nw_input[csv_element_extract(components_found[items][c1][0])]+".csv"+\
+                                " and "+csv_element_truncate(components_found[items][c2][0])+\
+                                " in sheet "+nw_input[csv_element_extract(components_found[items][c2][0])]+".csv")
+
     component_objects = {}
-    
+
     for items in components_found.keys():
         # Take every type of component found
         # item -> resistor, inductor etc
@@ -1604,13 +1594,12 @@ def determine_circuit_components(conn_matrix, nw_input):
             # the unique cell position in the spreadsheet
             component_objects[components_found[items][c1][0]] = \
                     CktElem.component_list[items](c1+1, components_found[items][c1][0], components_found[items][c1][1], nw_input)
-        
-        
-    return [components_found,  component_objects]
+
+    return [components_found, component_objects, ckt_error_list]
 
 
 
-def classify_components(components_found,  component_objects):
+def classify_components(components_found, component_objects):
     """
     Make lists of components that have voltages, that are meters,
     and that can be controlled. These lists determine the size of the
@@ -1622,25 +1611,25 @@ def classify_components(components_found,  component_objects):
     bundled_list_of_components = []
     
     source_list = []
-    
+
     for items in components_found.keys():
         for c1 in range(len(components_found[items])):
             if component_objects[components_found[items][c1][0]].has_voltage=="yes":
                 source_list.append(components_found[items][c1][0])
 
     bundled_list_of_components.append(source_list)
-    
+
     meter_list = []
-    
+
     for items in components_found.keys():
         for c1 in range(len(components_found[items])):
             if component_objects[components_found[items][c1][0]].is_meter=="yes":
                 meter_list.append(components_found[items][c1][0])
 
     bundled_list_of_components.append(meter_list)
-    
+
     controlled_elements = []
-    
+
     for items in components_found.keys():
         for c1 in range(len(components_found[items])):
             if component_objects[components_found[items][c1][0]].has_control=="yes":

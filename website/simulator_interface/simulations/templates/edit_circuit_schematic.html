@@ -68,8 +68,13 @@
 			<input type="submit" name="add_ckt_schematic" value="Add circuit file">
 			Use this button to add circuit schematic spreadsheets.
 			<br> <br>
-			<input type="submit" name="process_ckt_schematics" value="Process circuit schematics">
+			{% if ckt_errors == 1 %}
+			{% else %}
+				{% if ckt_schematic_form.0.0 %}
+					<input type="submit" name="process_ckt_schematics" value="Process circuit schematics">
+				{% endif %}
 			<br> <br>
+			{% endif %}
 			<input type="submit" name="main_page" value="Back to main page">
 		{% endif %}
 		<input type="hidden" name="sim_id" value="{{ sim_id }}">
