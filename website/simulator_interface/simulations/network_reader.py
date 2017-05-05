@@ -438,7 +438,7 @@ def jump_checking(x_matrix, x_jump, sheet, row, col, no_of_rows, no_of_cols, nw_
         if ("jump" in next_row_element or "jump" in next_col_element or \
             "jump" in prev_row_element or "jump" in prev_col_element):
             jump_error_list.append("Check at "+csv_element_2D([row, col])+" in "+nw_input[sheet]+".csv. \
-                    Circuit Error: Jump label is adjacent to a node.")
+Circuit Error: Jump labels in adjacent cells.")
 #            print
 #            print "*"*40
 #            print "Check at %s in %s" %(csv_element_2D([row, col]), nw_input[sheet]+".csv")
@@ -585,47 +585,55 @@ def jump_node_check(x_mat, x_list, jdir, row, nw_input):
     This function checks whether a node is next to
     a jump label and raises an exception.
     """
-    
+    jump_node_check_error_list = []
     n_sheet = x_list[row][0]
     n_row = x_list[row][1]
     n_col = x_list[row][2]
     if (jdir=="up"):
         if (len(x_mat[n_sheet][n_row-1][n_col])>3):
             if (x_mat[n_sheet][n_row-1][n_col].lower()[0:4]=="jump"):
-                print
-                print "*"*40
-                print "Check jump at %s in sheet %s." \
-                %(csv_element_2D([n_row-1, n_col]), nw_input[n_sheet]+".csv")
-                raise CktEx.JumpAdjacentNodeError
+                jump_node_check_error_list.append("Check jump at "+csv_element_2D([n_row-1, n_col])+\
+                        " in sheet "+nw_input[n_sheet]+".csv. Circuit Error: Jump label is adjacent to a node.")
+#                print
+#                print "*"*40
+#                print "Check jump at %s in sheet %s." \
+#                %(csv_element_2D([n_row-1, n_col]), nw_input[n_sheet]+".csv")
+#                raise CktEx.JumpAdjacentNodeError
         
     if (jdir=="down"):
         if (len(x_mat[n_sheet][n_row+1][n_col])>3):
             if (x_mat[n_sheet][n_row+1][n_col].lower()[0:4]=="jump"):
-                print
-                print "*"*40
-                print "Check jump at %s in sheet %s." \
-                %(csv_element_2D([n_row+1, n_col]), nw_input[n_sheet]+".csv")
-                raise CktEx.JumpAdjacentNodeError
+                jump_node_check_error_list.append("Check jump at "+csv_element_2D([n_row+1, n_col])+\
+                        " in sheet "+nw_input[n_sheet]+".csv. Circuit Error: Jump label is adjacent to a node.")
+#                print
+#                print "*"*40
+#                print "Check jump at %s in sheet %s." \
+#                %(csv_element_2D([n_row+1, n_col]), nw_input[n_sheet]+".csv")
+#                raise CktEx.JumpAdjacentNodeError
         
     if (jdir=="left"):
         if (len(x_mat[n_sheet][n_row][n_col-1])>3):
             if (x_mat[n_sheet][n_row][n_col-1].lower()[0:4]=="jump"):
-                print
-                print "*"*40
-                print "Check jump at %s in sheet %s." \
-                %(csv_element_2D([n_row, n_col-1]), nw_input[n_sheet]+".csv")
-                raise CktEx.JumpAdjacentNodeError
+                jump_node_check_error_list.append("Check jump at "+csv_element_2D([n_row, n_col-1])+\
+                        " in sheet "+nw_input[n_sheet]+".csv. Circuit Error: Jump label is adjacent to a node.")
+#                print
+#                print "*"*40
+#                print "Check jump at %s in sheet %s." \
+#                %(csv_element_2D([n_row, n_col-1]), nw_input[n_sheet]+".csv")
+#                raise CktEx.JumpAdjacentNodeError
         
     if (jdir=="right"):
         if (len(x_mat[n_sheet][n_row][n_col+1])>3):
             if (x_mat[n_sheet][n_row][n_col+1].lower()[0:4]=="jump"):
-                print
-                print "*"*40
-                print "Check jump at %s in sheet %s." \
-                %(csv_element_2D([n_row, n_col+1]), nw_input[n_sheet]+".csv")
-                raise CktEx.JumpAdjacentNodeError
+                jump_node_check_error_list.append("Check jump at "+csv_element_2D([n_row, n_col+1])+\
+                        " in sheet "+nw_input[n_sheet]+".csv. Circuit Error: Jump label is adjacent to a node.")
+#                print
+#                print "*"*40
+#                print "Check jump at %s in sheet %s." \
+#                %(csv_element_2D([n_row, n_col+1]), nw_input[n_sheet]+".csv")
+#                raise CktEx.JumpAdjacentNodeError
         
-    return
+    return jump_node_check_error_list
 
 
 
@@ -820,83 +828,89 @@ def determine_nodes_branches(conn_matrix, nw_input):
 #            del jump_matrix[jump_list[c1][3]]
 #            raise CktEx.MultipleJumpError
 
-    for sheet in range(conn_sheets):
-        conn_rows = len(conn_matrix[sheet])
-        conn_columns = len(conn_matrix[sheet][0])
-        for c1 in range(conn_rows):
-            for c2 in range(conn_columns):
-                curr_element = {"exist":0, "jump":1}
-                jump_sanity(conn_matrix, curr_element, sheet, c1, c2)
+    if not ckt_error_list:
+        for sheet in range(conn_sheets):
+            conn_rows = len(conn_matrix[sheet])
+            conn_columns = len(conn_matrix[sheet][0])
+            for c1 in range(conn_rows):
+                for c2 in range(conn_columns):
+                    curr_element = {"exist":0, "jump":1}
+                    jump_sanity(conn_matrix, curr_element, sheet, c1, c2)
 
-                if ("exist" in curr_element):
-                    node_checking(conn_matrix, node_list, sheet, c1, c2, conn_rows, conn_columns)
-                else:
-                    pass
+                    if ("exist" in curr_element):
+                        node_checking(conn_matrix, node_list, sheet, c1, c2, conn_rows, conn_columns)
+                    else:
+                        pass
 
     # Map of branches between nodes in node_list
     branch_map = []
 
-    # Creating a square of the dimension
-    # of (node_list) x (node_list).
-    # Each element will be a list of the
-    # series connection of branches between the nodes.
-    for c1 in range(len(node_list)):
-        branch_rows = []
-        for c2 in range(len(node_list)):
-            branch_rows.append([])
-        branch_map.append(branch_rows)
+    if not ckt_error_list:
+        # Creating a square of the dimension
+        # of (node_list) x (node_list).
+        # Each element will be a list of the
+        # series connection of branches between the nodes.
+        for c1 in range(len(node_list)):
+            branch_rows = []
+            for c2 in range(len(node_list)):
+                branch_rows.append([])
+            branch_map.append(branch_rows)
 
     # List of branches between nodes
     branch_list=[]
 
-    # Generate a search rule for each node.
-    # The concept is to start at a node and
-    # search until another node is reached.
-    node_iter_rule = []
-    for c1 in range(len(node_list)):
-        node_sheet = node_list[c1][0]
-        node_row = node_list[c1][1]
-        node_column = node_list[c1][2]
-        conn_rows = len(conn_matrix[node_sheet])
-        conn_columns = len(conn_matrix[node_sheet][0])
+    if not ckt_error_list:
+        # Generate a search rule for each node.
+        # The concept is to start at a node and
+        # search until another node is reached.
+        node_iter_rule = []
+        for c1 in range(len(node_list)):
+            node_sheet = node_list[c1][0]
+            node_row = node_list[c1][1]
+            node_column = node_list[c1][2]
+            conn_rows = len(conn_matrix[node_sheet])
+            conn_columns = len(conn_matrix[node_sheet][0])
 
-        iter_rule={"left":0, "down":1, "right":2, "up":3}
+            iter_rule={"left":0, "down":1, "right":2, "up":3}
 
-        # For nodes in the outer edges,
-        # the rules going outwards will be removed.
-        if (node_row==0):
-            del(iter_rule["up"])
-        if (node_row==conn_rows-1):
-            del(iter_rule["down"])
-        if (node_column==0):
-            del(iter_rule["left"])
-        if (node_column==conn_columns-1):
-            del(iter_rule["right"])
-
-        # Depending on the non-existence of elements
-        # in a direction, those rules will be removed.
-        if (node_row>0):
-            if (conn_matrix[node_sheet][node_row-1][node_column]==''):
+            # For nodes in the outer edges,
+            # the rules going outwards will be removed.
+            if (node_row==0):
                 del(iter_rule["up"])
-
-        if (node_row<conn_rows-1):
-            if (conn_matrix[node_sheet][node_row+1][node_column]==''):
+            if (node_row==conn_rows-1):
                 del(iter_rule["down"])
-
-        if (node_column>0):
-            if (conn_matrix[node_sheet][node_row][node_column-1]==''):
+            if (node_column==0):
                 del(iter_rule["left"])
-
-        if (node_column<conn_columns-1):
-            if (conn_matrix[node_sheet][node_row][node_column+1]==''):
+            if (node_column==conn_columns-1):
                 del(iter_rule["right"])
 
-        node_iter_rule.append(iter_rule)
+            # Depending on the non-existence of elements
+            # in a direction, those rules will be removed.
+            if (node_row>0):
+                if (conn_matrix[node_sheet][node_row-1][node_column]==''):
+                    del(iter_rule["up"])
 
-    # Check if a jump is not next to a node.
-    for c1 in range(len(node_list)):
-        for jump_check_dir in node_iter_rule[c1].keys():
-            jump_node_check(conn_matrix, node_list, jump_check_dir, c1, nw_input)
+            if (node_row<conn_rows-1):
+                if (conn_matrix[node_sheet][node_row+1][node_column]==''):
+                    del(iter_rule["down"])
+
+            if (node_column>0):
+                if (conn_matrix[node_sheet][node_row][node_column-1]==''):
+                    del(iter_rule["left"])
+
+            if (node_column<conn_columns-1):
+                if (conn_matrix[node_sheet][node_row][node_column+1]==''):
+                    del(iter_rule["right"])
+
+            node_iter_rule.append(iter_rule)
+
+    if not ckt_error_list:
+        # Check if a jump is not next to a node.
+        for c1 in range(len(node_list)):
+            for jump_check_dir in node_iter_rule[c1].keys():
+                jump_node_check_error_list = jump_node_check(conn_matrix, node_list, jump_check_dir, c1, nw_input)
+                if jump_node_check_error_list:
+                    ckt_error_list.extend(jump_node_check_error_list)
 
     # For each node in node_list perform the search operation.
     # Each node has a list of possible search rules.
@@ -911,87 +925,96 @@ def determine_nodes_branches(conn_matrix, nw_input):
     # If a new element is encountered,
     # update the element in branch iter and continue.
 
-    for c1 in range(len(node_list)):
-        # Iterate through every node found
-        node_sheet = node_list[c1][0]
-        node_row = node_list[c1][1]
-        node_column = node_list[c1][2]
-        conn_rows = len(conn_matrix[node_sheet])
-        conn_columns = len(conn_matrix[node_sheet][0])
+    if not ckt_error_list:
+        for c1 in range(len(node_list)):
+            if ckt_error_list:
+                break
+            # Iterate through every node found
+            node_sheet = node_list[c1][0]
+            node_row = node_list[c1][1]
+            node_column = node_list[c1][2]
+            conn_rows = len(conn_matrix[node_sheet])
+            conn_columns = len(conn_matrix[node_sheet][0])
 
-        for branch_dir in node_iter_rule[c1].keys():
-            # Move in every direction possible
-            # for every node
-            branch_iter = []
-            branch_iter.append([node_sheet, node_row, node_column])
+            for branch_dir in node_iter_rule[c1].keys():
+                if ckt_error_list:
+                    break
+                # Move in every direction possible
+                # for every node
+                branch_iter = []
+                branch_iter.append([node_sheet, node_row, node_column])
 
-            # Initial advancement.
-            if (branch_dir=="left"):
-                if (node_column>0):
-                    next_node_row = node_row
-                    next_node_column = node_column-1
-            if (branch_dir=="down"):
-                if (node_row<conn_rows-1):
-                    next_node_row = node_row+1
-                    next_node_column = node_column
-            if (branch_dir=="right"):
-                if (node_column<conn_columns-1):
-                    next_node_row = node_row
-                    next_node_column = node_column+1
-            if (branch_dir=="up"):
-                if (node_row>0):
-                    next_node_row = node_row-1
-                    next_node_column = node_column
+                # Initial advancement.
+                if (branch_dir=="left"):
+                    if (node_column>0):
+                        next_node_row = node_row
+                        next_node_column = node_column-1
+                if (branch_dir=="down"):
+                    if (node_row<conn_rows-1):
+                        next_node_row = node_row+1
+                        next_node_column = node_column
+                if (branch_dir=="right"):
+                    if (node_column<conn_columns-1):
+                        next_node_row = node_row
+                        next_node_column = node_column+1
+                if (branch_dir=="up"):
+                    if (node_row>0):
+                        next_node_row = node_row-1
+                        next_node_column = node_column
 
-            # As there cannot be a jump next to a node
-            next_node_sheet = node_sheet
+                # As there cannot be a jump next to a node
+                next_node_sheet = node_sheet
 
-            # This variable is used when jumps are encountered.
-            jump_executed = ""
+                # This variable is used when jumps are encountered.
+                jump_executed = ""
 
-            # Termination condition - next element is a node.
-            while not ([next_node_sheet, next_node_row, next_node_column] in node_list):
+                # Termination condition - next element is a node.
+                while not ([next_node_sheet, next_node_row, next_node_column] in node_list):
 
-                # If a jump is encountered.
-                # Look for the label in the jump_matrix dictionary
-                # Check which element has been encountered.
-                # Check the co-ordinates of the other element and
-                # the sense of movement.
-                # Depending on the sense of movement, update
-                # the new co-ordinates with respect
-                # to the other element
-                # Add a flag to show which direction movement
-                # has taken place
-                # To ensure that we don't go back
-                # from the next element after the jump.
-                next_element = [next_node_sheet, next_node_row, next_node_column]
+                    # If a jump is encountered.
+                    # Look for the label in the jump_matrix dictionary
+                    # Check which element has been encountered.
+                    # Check the co-ordinates of the other element and
+                    # the sense of movement.
+                    # Depending on the sense of movement, update
+                    # the new co-ordinates with respect
+                    # to the other element
+                    # Add a flag to show which direction movement
+                    # has taken place
+                    # To ensure that we don't go back
+                    # from the next element after the jump.
+                    next_element = [next_node_sheet, next_node_row, next_node_column]
 
-                jump_executed, next_node_sheet, next_node_row, next_node_column = \
-                branch_jump(conn_matrix, jump_matrix, next_element)
+                    jump_executed, next_node_sheet, next_node_row, next_node_column = \
+                    branch_jump(conn_matrix, jump_matrix, next_element)
 
-                branch_iter.append([next_node_sheet, next_node_row, next_node_column])
+                    branch_iter.append([next_node_sheet, next_node_row, next_node_column])
 
-                next_element = [next_node_sheet, next_node_row, next_node_column]
-                jump_executed, next_node_sheet, next_node_row, next_node_column = \
-                    branch_advance(conn_matrix, branch_iter, next_element, \
-                                jump_executed)
+                    next_element = [next_node_sheet, next_node_row, next_node_column]
+                    jump_executed, next_node_sheet, next_node_row, next_node_column = \
+                        branch_advance(conn_matrix, branch_iter, next_element, \
+                                    jump_executed)
 
-                # If no advancement is possible, it means circuit is broken.
-                # Can improve on this error message later.
-                if ([next_node_sheet, next_node_row, next_node_column] in branch_iter):
-                    print
-                    print "*"*40
-                    #print conn_matrix[next_node_sheet][next_node_row-1][next_node_column]
-                    print "Check branch continuity at %s in sheet %s" \
-                    %(csv_element_2D([next_node_row, next_node_column]), nw_input[next_node_sheet]+".csv")
-                    raise CktEx.BrokenBranchError
+                    # If no advancement is possible, it means circuit is broken.
+                    # Can improve on this error message later.
+                    if ([next_node_sheet, next_node_row, next_node_column] in branch_iter):
+                        ckt_error_list.append("Check branch continuity at "+\
+                                csv_element_2D([next_node_row, next_node_column])+" in sheet "+\
+                                nw_input[next_node_sheet]+".csv. Circuit Error: Branch is broken. Must close all branches.")
+                        break
+#                        print
+#                        print "*"*40
+#                        #print conn_matrix[next_node_sheet][next_node_row-1][next_node_column]
+#                        print "Check branch continuity at %s in sheet %s" \
+#                        %(csv_element_2D([next_node_row, next_node_column]), nw_input[next_node_sheet]+".csv")
+#                        raise CktEx.BrokenBranchError
 
-            else:
-                branch_iter.append([next_node_sheet, next_node_row, next_node_column])
-                next_elem_index = node_list.index([next_node_sheet, next_node_row, next_node_column])
-                branch_map[c1][next_elem_index].append(branch_iter)
+                else:
+                    branch_iter.append([next_node_sheet, next_node_row, next_node_column])
+                    next_elem_index = node_list.index([next_node_sheet, next_node_row, next_node_column])
+                    branch_map[c1][next_elem_index].append(branch_iter)
 
-    return [node_list, branch_map]
+    return [node_list, branch_map, ckt_error_list]
 
 
 
@@ -1000,14 +1023,14 @@ def loop_copy(loop_inp):
     Will return a copy of a loop list
     Used when a change needs to be made.
     """
-    
+
     loop_op = []
     for c1 in range(len(loop_inp)):
         row_vector = []
         for c2 in range(len(loop_inp[c1])):
             row_vector.append(loop_inp[c1][c2])
         loop_op.append(row_vector)
-        
+
     return loop_op
 
 
@@ -1049,7 +1072,7 @@ def check_loop_repeat(lp_iter, lp_list):
         # it means the loop exists
         if not iter_cmp:
             lp_repeat = 1
-        
+
     return lp_repeat
 
 
@@ -1060,7 +1083,7 @@ def loop_addition(br_map, nd_list, lp_list, curr_lp_iter, lp_update, curr_elem, 
     Check for a parallel branch at that element.
     Add that element if not already there in the temporary loop.
     """
-    
+
     row = curr_elem[0]
     col = curr_elem[1]
 
@@ -1087,7 +1110,7 @@ def loop_addition(br_map, nd_list, lp_list, curr_lp_iter, lp_update, curr_elem, 
         # won't contain it.
 
         #all_loops = all_loops+main_loops
-        
+
     return main_loops
 
 
@@ -1127,9 +1150,9 @@ def loop_horiz(br_map, nd_list, lp_list, lp_iter, elem, lp_map_list):
     # lp_list is the loops found.
     # lp_iter is the list of loops as they are being identified.
     # Those that are loops will be added to lp_list.
-    
+
     no_nodes = len(br_map)
-    
+
     start_row = elem[0]
     start_col = elem[1]
 
@@ -1154,12 +1177,11 @@ def loop_horiz(br_map, nd_list, lp_list, lp_iter, elem, lp_map_list):
             curr_elem = [loop_row, c3]
             c2 = loop_addition(br_map, nd_list, lp_list, lp_iter[c1], lp_update, curr_elem, c2)
 
-
     any_loop_closes = "no"
     c1 = len(lp_update)-1
 
     while any_loop_closes=="no" and c1>=0:
-        
+
         # End condition
         # Latest element has ending or starting node
         # Same as last element of first branch
@@ -1175,7 +1197,6 @@ def loop_horiz(br_map, nd_list, lp_list, lp_iter, elem, lp_map_list):
 
         c1 -= 1
 
-
     if any_loop_closes=="no":
         # lp_iter will be the same as lp_update
         lp_iter = []
@@ -1187,9 +1208,8 @@ def loop_horiz(br_map, nd_list, lp_list, lp_iter, elem, lp_map_list):
     # lp_iter contains ongoing loops
     # Closed loops are moved to lp_list
     # Broken loops are dropped
-    
-    return lp_iter
 
+    return lp_iter
 
 
 
@@ -1204,13 +1224,13 @@ def loop_vert(br_map, nd_list, lp_list, lp_iter, elem, lp_map_list):
     # lp_iter is the list of loops as they are being identified.
     # Those that are loops will be added to lp_list.
     no_nodes = len(br_map)
-    
+
     start_row = elem[0]
     start_col = elem[1]
 
     # Temp list to make copies
     # of exisiting lists
-    # if elements exist on that column    
+    # if elements exist on that column
     lp_update = []
     # Counter for number
     # of elements found in the column
@@ -1227,8 +1247,6 @@ def loop_vert(br_map, nd_list, lp_list, lp_iter, elem, lp_map_list):
             curr_elem = [c3, loop_column]
             c2 = loop_addition(br_map, nd_list, lp_list, lp_iter[c1], lp_update, curr_elem, c2)
 
-
-
     any_loop_closes = "no"
     c1 = len(lp_update)-1
 
@@ -1259,7 +1277,7 @@ def loop_vert(br_map, nd_list, lp_list, lp_iter, elem, lp_map_list):
     # lp_iter contains ongoing loops
     # Closed loops are moved to lp_list
     # Broken loops are dropped
-    
+
     return lp_iter
 
 
@@ -1271,7 +1289,7 @@ def find_loop(br_map, nd_list, lp_list, lp_iter, elem, lp_map_list):
     nodes. The starting point is the first branch in br_map.
     The loops found need not be independent loops.
     """
-    
+
     no_nodes = len(br_map)
 
     # First branch
@@ -1318,7 +1336,7 @@ def determine_loops(conn_matrix,  node_list,  branch_map):
     system from the branch map i.e the nodes and the
     branches between the nodes.
     """
-    
+
     # Determining the loops
     loop_list = []
 
@@ -1331,14 +1349,12 @@ def determine_loops(conn_matrix,  node_list,  branch_map):
                 if [c1, c2] not in loop_map_list:
                     loop_map_list.append([c1, c2])
 
-
     # A special check for parallel branches between nodes
     # Add the pair of nodes directly to the loop_list
     for c1 in range(len(loop_map_list)):
         if len(branch_map[loop_map_list[c1][0]][loop_map_list[c1][1]])>1:
             if not check_loop_repeat([loop_map_list[c1], loop_map_list[c1]], loop_list):
                 loop_list.append([loop_map_list[c1], loop_map_list[c1]])
-
 
     # loop_iter is the list that iteratively checks the
     # loops for continuity and closing. It is initalized
@@ -1353,40 +1369,22 @@ def determine_loops(conn_matrix,  node_list,  branch_map):
             find_loop(branch_map, node_list, loop_list, loop_iter, \
                     [c1, c2], loop_map_list)
 
-
     branch_count_check = 0
     for c1 in range(len(branch_map)):
         for c2 in range(c1, len(branch_map[c1])):
             if branch_map[c1][c2]:
                 branch_count_check += len(branch_map[c1][c2])
-    
-    print "Number of nodes = ", 
-    print len(node_list)
-    print
-    
-    print "Number of branches = ", 
-    print branch_count_check
-    print
 
-    loop_count=len(loop_list)
-    print "Number of loops = ", 
-    print loop_count
-    print
-    
-    
     test_branch_count = 0
     for c1 in range(len(branch_map)):
         for c2 in range(c1+1, len(branch_map[c1])):
             test_branch_count += len(branch_map[c1][c2])
-    
 
     # Remove any repitions in loop_list
     for c1 in range(len(loop_list)-1):
         for c2 in range(len(loop_list)-1, c1, -1):
             if loop_list[c1]==loop_list[c2]:
                 del loop_list[c2]
-
-
 
     # The actual elements from the branches
     # to be entered into the loops
@@ -1415,7 +1413,7 @@ def determine_loops(conn_matrix,  node_list,  branch_map):
                 loop_branches.append(loop_updt)
         else:
             loop_updt = []
-            
+
             # Go through all elements in the loop
             for c2 in range(0, len(loop_list[c1])-1):
 
@@ -1428,11 +1426,10 @@ def determine_loops(conn_matrix,  node_list,  branch_map):
                 next_br_beg = branch_map[next_br[0]][next_br[1]][0][0]
                 next_br_end = branch_map[next_br[0]][next_br[1]][0][-1]
 
-
                 curr_dir = "forward"
 
                 # Start stringing the branches together
-                
+
                 # So if it is the first branch
                 # Check if the beginning element of the branch
                 # is the same as the beginning or ending element
@@ -1449,7 +1446,6 @@ def determine_loops(conn_matrix,  node_list,  branch_map):
                 else:
                     if curr_br_end==loop_updt[-1]:
                         curr_dir = "reverse"
-
 
                 # Depending on the direction in which
                 # an element is to be added to
@@ -1478,7 +1474,7 @@ def determine_loops(conn_matrix,  node_list,  branch_map):
             for c3 in range(len(loop_updt)-1, 0, -1):
                 if loop_updt[c3]==loop_updt[c3-1]:
                     del loop_updt[c3]
-        
+
             loop_branches.append(loop_updt)
         
     # In the loop finder function, a check is enforced
@@ -1493,7 +1489,7 @@ def determine_loops(conn_matrix,  node_list,  branch_map):
                     node_repeat = "yes"
         if node_repeat=="yes":
             del loop_branches[c1]
-        
+
     # The loops are broken up as branches.
     # Each branch are element between two nodes
     for c1 in range(len(loop_branches)):
@@ -1503,16 +1499,16 @@ def determine_loops(conn_matrix,  node_list,  branch_map):
             if node_list[c2] in loop_branches[c1]:
                 row1_node_list.append(loop_branches[c1].index(node_list[c2]))
         row1_node_list.sort()
-    
+
         for c2 in range(len(row1_node_list)-1):
             seg_vector = loop_branches[c1][row1_node_list[c2]:row1_node_list[c2+1]+1]
             row1_branch_list.append(seg_vector)
-    
+
         seg_vector = loop_branches[c1][row1_node_list[c2+1]:len(loop_branches[c1])]
         row1_branch_list.append(seg_vector)
-    
+
         loop_branches[c1] = row1_branch_list
-        
+
     return [loop_list, loop_branches]
 
 
@@ -1647,7 +1643,7 @@ def update_branches_loops(loop_branches, source_list):
     the branches along with their parameters such as R, L and
     voltages are added. Simultaneously, a list called system loops
     is created where the branches of each loop are added. Another
-    check is make to ensure that branches are not repeated by 
+    check is make to ensure that branches are not repeated by
     reversing them.
     """
 
@@ -1656,8 +1652,7 @@ def update_branches_loops(loop_branches, source_list):
     system_loops = []
     for c1 in range(len(loop_branches)):
         system_loops.append([])
-    
-    
+
     for c1 in range(len(loop_branches)):
         # The diagonal elements of system_loops
         # will be the loops themselves.
@@ -1667,13 +1662,12 @@ def update_branches_loops(loop_branches, source_list):
                 diag_elem.append(loop_branches[c1][c2][c3])
             diag_elem.append("forward")
             system_loops[c1].append(diag_elem)
-    
 
     # This list contains every branch and
     # at the end contains the elements that
     # would go into A, B and E matrices.
     branch_params = []
-    
+
     for c1 in range(len(system_loops)):
         # Check if a branch has already been added to
         # branch_params.
@@ -1682,7 +1676,7 @@ def update_branches_loops(loop_branches, source_list):
             for c4 in range(len(branch_params)):
                 if system_loops[c1][c2][:-1]==branch_params[c4][:-1]:
                     branch_found = "yes"
-    
+
             # Matrix B will have the number
             # of entries equal to the number
             # of sources.
@@ -1700,8 +1694,7 @@ def update_branches_loops(loop_branches, source_list):
                 params_add.append(0)
                 branch_add.append(params_add)
                 branch_params.append(branch_add)
-    
-    
+
     # This is an additional layer of check to make sure
     # that none of the branches in branch_params is the
     # reverse of another.
@@ -1716,7 +1709,7 @@ def update_branches_loops(loop_branches, source_list):
         for c2 in range(len(check_br_reverse)/2):
             check_br_reverse[c2], check_br_reverse[len(check_br_reverse)-1-c2] = \
                                   check_br_reverse[len(check_br_reverse)-1-c2], check_br_reverse[c2]
-    
+
         # Iterate through the branches.
         c2=0
         while c2<len(branch_params):
@@ -1727,20 +1720,20 @@ def update_branches_loops(loop_branches, source_list):
                 # Find out where the branch occurs in
                 # system_loops and reverse those branches
                 # Second, delete that branch from branch_params
-    
+
                 # There will be two instances of the branch
                 # One with a forward appended at the end
                 check_br_fwd = []
                 for c3 in range(len(branch_params[c1][:-1])):
                     check_br_fwd.append(branch_params[c1][c3])
                 check_br_fwd.append("forward")
-    
+
                 # The other with a reverse appended at the end.
                 check_br_rev = []
                 for c3 in range(len(branch_params[c1][:-1])):
                     check_br_rev.append(branch_params[c1][c3])
                 check_br_rev.append("reverse")
-    
+
                 # Look through the entire system_loops matrix
                 for c3 in range(len(system_loops)):
                     # Check if the branch with forward is found.
@@ -1751,7 +1744,7 @@ def update_branches_loops(loop_branches, source_list):
                         ex_br_dir = system_loops[c3][ex_br_pos][-1]
                         # Delete the branch
                         del system_loops[c3][ex_br_pos]
-    
+
                         # Add the earlier branch found branch_params[c2]
                         # But reverse the direction of the branch just
                         # deleted.
@@ -1761,14 +1754,14 @@ def update_branches_loops(loop_branches, source_list):
                                 new_br.append(branch_params[c2][c5])
                             new_br.append("reverse")
                             system_loops[c3].append(new_br)
-    
+
                         else:
                             new_br = []
                             for c5 in range(len(branch_params[c2])-1):
                                 new_br.append(branch_params[c2][c5])
                             new_br.append("forward")
                             system_loops[c3].append(new_br)
-    
+
                     # Repeat the process with the branch with reverse
                     if (check_br_rev in system_loops[c3]):
                         ex_br_pos = system_loops[c3].index(check_br_rev)
@@ -1780,18 +1773,18 @@ def update_branches_loops(loop_branches, source_list):
                                 new_br.append(branch_params[c2][c5])
                             new_br.append("reverse")
                             system_loops[c3].append(new_br)
-    
+
                         else:
                             new_br = []
                             for c5 in range(len(branch_params[c2])-1):
                                 new_br.append(branch_params[c2][c5])
                             new_br.append("forward")
                             system_loops[c3].append(new_br)
-    
+
                 # Delete the latest branch because it is a reverse
                 del branch_params[c1]
             c2 += 1
-        
+
     return [system_loops, branch_params]
 
 

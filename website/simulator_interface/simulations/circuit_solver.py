@@ -553,7 +553,7 @@ folder/directory as circuit_solver.py" %nw_layout[c1]
     # Collect branches into bundles - those with
     # inductances, those with nonlinear elements,
     # those with voltage sources.
-    bundled_list_of_branches = NwRdr.classify_branches(branch_params,  component_objects)
+    bundled_list_of_branches = NwRdr.classify_branches(branch_params, component_objects)
     
     nonlinear_freewheel_branches = bundled_list_of_branches[0]
     inductor_list = bundled_list_of_branches[1][0]
