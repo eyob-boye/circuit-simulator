@@ -44,7 +44,18 @@
 			one circuit spreadsheet. Click on the "Edit Simulation Parameters" button above to confirm the working directory and continue to
 			add circuit schematic spreadsheets.</p>
 		{% endif %}
-		
+
+		{% if sim_state >= 3 %}
+			<input type="submit" name="edit_ckt_parameters" value="Edit circuit parameters"> <br>
+			<p>Click above to edit the parameters of the components in the circuit uploaded.</p>
+		{% endif %}
+
+		{% if sim_state == 3 %}
+			<p>After performing an initial processing of the circuit spreadsheets that have been uploaded, you are now ready to edit the
+			parameters of the components in the circuit. It is advisable to browse through the parameters by clicking on "Edit parameters"
+			button if any change	is made in the circuits.</p>
+		{% endif %}
+
 		<input type="hidden" name="sim_id" value="{{ sim_id }}">
 		<input type="hidden" name="sim_state" value="{{ sim_state }}">
 		{% csrf_token %}

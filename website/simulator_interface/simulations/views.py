@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from django.http import HttpResponse
 from django.forms.models import model_to_dict
-from models import SimulationCase, SimulationCaseForm, CircuitSchematics, CircuitSchematicsForm
+from models import SimulationCase, SimulationCaseForm, CircuitSchematics, CircuitSchematicsForm, CircuitComponents
 import os
 import network_reader as NwRdr
 
@@ -159,6 +159,7 @@ def save_circuit_schematic(request):
                 ckt_form.add_error('ckt_file_descrip', 'Circuit spreadsheet could not be read. \
                                                 Make sure it is in same directory as working directory above')
             ckt_schematic_form.append([[], ckt_form])
+            ckt_errors = 1
 
         # If it can be read, it could be a genuine file in which case save it.
         # Or else, it may not be a .csv file, in which case raise an error.
@@ -175,6 +176,7 @@ def save_circuit_schematic(request):
                 ckt_form = CircuitSchematicsForm(request.POST)
                 ckt_form.add_error('ckt_file_descrip', 'Circuit schematic must be a .csv file.')
                 ckt_schematic_form.append([[], ckt_form])
+                ckt_errors = 1
 
     return [sim_id, sim_state, ckt_schematic_form, ckt_errors]
 
@@ -249,6 +251,57 @@ def process_circuit_schematics(sim_para_model):
             NwRdr.determine_circuit_components(conn_ckt_mat, nw_input)
     
     if not ckt_error_list:
+        all_components = sim_para_model.circuitcomponents_set.all()
+        for comp_types in components_found.keys():
+            # Take every type of component found
+            # item -> resistor, inductor etc
+            for c1 in range(len(components_found[comp_types])):
+                # Each component type will be occurring
+                # multiple times. Iterate through every find.
+                # The list corresponding to each component is
+                # the unique cell position in the spreadsheet
+                check_comp_exists = all_components.filter(comp_type=comp_types).\
+                        filter(comp_tag=components_found[comp_types][c1][1])
+                if check_comp_exists and len(check_comp_exists)==1:
+                    old_comp_object = check_comp_exists[0]
+                    old_comp_object.comp_number = c1 + 1
+                    old_comp_object.comp_pos_3D = components_found[comp_types][c1][0]
+                    old_comp_object.comp_pos = NwRdr.csv_element_2D(NwRdr.csv_tuple(components_found[comp_types][c1][0])[1:])
+                    sheet_number = NwRdr.csv_tuple(components_found[comp_types][c1][0])[0]
+                    old_comp_object.comp_sheet = sheet_number
+                    old_comp_object.sheet_name = nw_input[sheet_number] + ".csv"
+                    old_comp_object.sim_case = sim_para_model
+                    old_comp_object.save()
+                    sim_para_model.save()
+                else:
+                    new_comp_object = CircuitComponents()
+                    new_comp_object.comp_type = comp_types
+                    new_comp_object.comp_number = c1 + 1
+                    new_comp_object.comp_pos_3D = components_found[comp_types][c1][0]
+                    new_comp_object.comp_pos = NwRdr.csv_element_2D(NwRdr.csv_tuple(components_found[comp_types][c1][0])[1:])
+                    sheet_number = NwRdr.csv_tuple(components_found[comp_types][c1][0])[0]
+                    new_comp_object.comp_sheet = sheet_number
+                    new_comp_object.sheet_name = nw_input[sheet_number] + ".csv"
+                    new_comp_object.comp_tag = components_found[comp_types][c1][1]
+                    new_comp_object.sim_case = sim_para_model
+                    new_comp_object.save()
+                    sim_para_model.save()
+        
+        for c2 in range(len(all_components)-1, -1, -1):
+            comp_exist = all_components[c2]
+            comp_found = False
+            c1 = 0
+            while c1<len(components_found[comp_exist.comp_type]) and comp_found==False:
+                if components_found[comp_exist.comp_type][c1][1]==comp_exist.comp_tag:
+                    comp_found = True
+                c1 += 1
+            
+            if comp_found==False:
+                comp_exist.delete()
+                sim_para_model.save()
+
+
+    if not ckt_error_list:
         # Make lists of nodes and branches in the circuit.
         node_list, branch_map, node_branch_errors = NwRdr.determine_nodes_branches(conn_ckt_mat, nw_input)
         if node_branch_errors:
@@ -257,71 +310,71 @@ def process_circuit_schematics(sim_para_model):
             circuit_analysis_components.append(node_list)
             circuit_analysis_components.append(branch_map)
 
-    # Segregating the elements in the circuit as those
-    # having source voltages, meters and those that can be
-    # controlled.
-    if not ckt_error_list:
-        bundled_list_of_elements = NwRdr.classify_components(components_found, component_objects)
-        circuit_analysis_components.append(bundled_list_of_elements)
-        source_list = bundled_list_of_elements[0]
-#        meter_list = bundled_list_of_elements[1]
-#        controlled_elements = bundled_list_of_elements[2]
-
-    if not ckt_error_list:
-        # Make a list of all the loops in the circuit.
-        loop_list, loop_branches = NwRdr.determine_loops(conn_ckt_mat, node_list, branch_map)
-        circuit_analysis_components.append(loop_list)
-        circuit_analysis_components.append(loop_branches)
-        print(loop_list)
-        print
-        print
-        print(loop_branches)
-        print
-        print
-
-    if not ckt_error_list:
-        # Convert the above list of loops as segments of branches
-        # while branch_params lists out the branch segments with
-        # their parameters as the last element
-        system_loops, branch_params = NwRdr.update_branches_loops(loop_branches, source_list)
-        circuit_analysis_components.append(system_loops)
-        circuit_analysis_components.append(branch_params)
-
-    if not ckt_error_list:
-        # Make lists of all the nodes connected together by 
-        # empty branches.
-        shortnode_list, shortbranch_list = NwRdr.delete_empty_branches(system_loops, branch_params, node_list, component_objects)
-        circuit_analysis_components.append(shortnode_list)
-        circuit_analysis_components.append(shortbranch_list)
-
-    if not ckt_error_list:
-        # Make a list which has the components of a branch
-        # as every element of the list.
-        components_in_branch = []
-        for c1 in range(len(branch_params)):
-            current_branch_vector = []
-            for c2 in range(len(branch_params[c1][:-1])):
-                try:
-                    comp_pos = NwRdr.csv_element(branch_params[c1][c2])
-                    component_objects[comp_pos]
-                except:
-                    pass
-                else:
-                    current_branch_vector.append(comp_pos)
-            
-            components_in_branch.append(current_branch_vector)
-
-        circuit_analysis_components.append(components_in_branch)
-
-        for c1 in components_in_branch:
-            print(c1)
-
-    if not ckt_error_list:
-        # Branch currents for nodal analysis
-        branch_currents = []
-        for c1 in range(len(branch_params)):
-            branch_currents.append(0.0)
-        circuit_analysis_components.append(branch_currents)
+#    # Segregating the elements in the circuit as those
+#    # having source voltages, meters and those that can be
+#    # controlled.
+#    if not ckt_error_list:
+#        bundled_list_of_elements = NwRdr.classify_components(components_found, component_objects)
+#        circuit_analysis_components.append(bundled_list_of_elements)
+#        source_list = bundled_list_of_elements[0]
+##        meter_list = bundled_list_of_elements[1]
+##        controlled_elements = bundled_list_of_elements[2]
+#
+#    if not ckt_error_list:
+#        # Make a list of all the loops in the circuit.
+#        loop_list, loop_branches = NwRdr.determine_loops(conn_ckt_mat, node_list, branch_map)
+#        circuit_analysis_components.append(loop_list)
+#        circuit_analysis_components.append(loop_branches)
+#        print(loop_list)
+#        print
+#        print
+#        print(loop_branches)
+#        print
+#        print
+#
+#    if not ckt_error_list:
+#        # Convert the above list of loops as segments of branches
+#        # while branch_params lists out the branch segments with
+#        # their parameters as the last element
+#        system_loops, branch_params = NwRdr.update_branches_loops(loop_branches, source_list)
+#        circuit_analysis_components.append(system_loops)
+#        circuit_analysis_components.append(branch_params)
+#
+#    if not ckt_error_list:
+#        # Make lists of all the nodes connected together by 
+#        # empty branches.
+#        shortnode_list, shortbranch_list = NwRdr.delete_empty_branches(system_loops, branch_params, node_list, component_objects)
+#        circuit_analysis_components.append(shortnode_list)
+#        circuit_analysis_components.append(shortbranch_list)
+#
+#    if not ckt_error_list:
+#        # Make a list which has the components of a branch
+#        # as every element of the list.
+#        components_in_branch = []
+#        for c1 in range(len(branch_params)):
+#            current_branch_vector = []
+#            for c2 in range(len(branch_params[c1][:-1])):
+#                try:
+#                    comp_pos = NwRdr.csv_element(branch_params[c1][c2])
+#                    component_objects[comp_pos]
+#                except:
+#                    pass
+#                else:
+#                    current_branch_vector.append(comp_pos)
+#            
+#            components_in_branch.append(current_branch_vector)
+#
+#        circuit_analysis_components.append(components_in_branch)
+#
+#        for c1 in components_in_branch:
+#            print(c1)
+#
+#    if not ckt_error_list:
+#        # Branch currents for nodal analysis
+#        branch_currents = []
+#        for c1 in range(len(branch_params)):
+#            branch_currents.append(0.0)
+#        circuit_analysis_components.append(branch_currents)
 
     for c1 in ckt_error_list:
         print(c1)
@@ -357,6 +410,8 @@ def new_simulation(request):
             sim_id, sim_state, ckt_schematic_form, ckt_errors = save_circuit_schematic(request)
             if sim_state==1:
                 sim_state = 2
+            print("in save ckt schematic")
+            print(ckt_errors)
             return render(request,
                 "edit_circuit_schematic.html",
                 {'sim_id' : sim_id,
@@ -436,7 +491,6 @@ def new_simulation(request):
             if "sim_state" in request.POST:
                 sim_state = int(request.POST["sim_state"])
 
-            ckt_errors = 0
             ckt_file_list = sim_para_model.circuitschematics_set.all()
             ckt_schematic_form = []
             if ckt_file_list:
@@ -447,12 +501,20 @@ def new_simulation(request):
                     circuit_analysis_components, ckt_error_list = \
                     process_circuit_schematics(sim_para_model)
 
+            if not ckt_error_list:
+                sim_state = 3
+
+            comp_list = sim_para_model.circuitcomponents_set.all()
+            for comp_item in comp_list:
+                print(comp_item)
+            print
+            print
             return render(request,
                 "edit_circuit_schematic.html",
                 {'sim_id' : sim_id,
                 'sim_state' : sim_state,
                 'ckt_schematic_form' : ckt_schematic_form,
-                'ckt_errors' : ckt_errors})
+                'ckt_error_list' : ckt_error_list})
 
         else:
             if "sim_id" in request.POST:

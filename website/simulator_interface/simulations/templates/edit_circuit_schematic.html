@@ -72,6 +72,8 @@
 			{% else %}
 				{% if ckt_schematic_form.0.0 %}
 					<input type="submit" name="process_ckt_schematics" value="Process circuit schematics">
+					If you are seeing this "Process circuit schematics" button, it means the circuits have been uploaded successfully. 
+					If you do not have any more circuits to upload, you need to click on this button to check for errors in the circuits.
 				{% endif %}
 			<br> <br>
 			{% endif %}
@@ -79,6 +81,19 @@
 		{% endif %}
 		<input type="hidden" name="sim_id" value="{{ sim_id }}">
 		<input type="hidden" name="sim_state" value="{{ sim_state }}">
+		{% if ckt_error_list %}
+			<br><br>
+			<p>There are the following errors in the circuits above. You must resolve these errors and click on the 
+			"Process circuit schematics" button above to check for errors again:</p>
+			<ol>
+				{% for ckt_error_item in ckt_error_list %}
+					<li>{{ ckt_error_item }}</li>
+				{% endfor %}
+			</ol>
+		{% else %}
+			<p>The circuits do not have any detectable errors. You can continue to enter the parameters by clicking on the
+			"Back to main page" button.</p>
+		{% endif %}
 		{% csrf_token %}
 		</form>
 	{% endblock %}

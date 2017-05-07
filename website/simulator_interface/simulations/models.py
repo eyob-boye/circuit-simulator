@@ -91,3 +91,42 @@ class CircuitSchematicsForm(ModelForm):
         model = CircuitSchematics
         fields = ('ckt_file_path', 
                 'ckt_file_descrip')
+
+
+class CircuitComponents(models.Model):
+    comp_type = models.CharField(max_length=100)
+    comp_number = models.IntegerField()
+    comp_pos_3D = models.CharField(max_length=50)
+    comp_pos = models.CharField(max_length=50)
+    comp_sheet = models.IntegerField()
+    sheet_name = models.CharField(max_length=200)
+    comp_tag = models.CharField(max_length=100)
+    sim_case = models.ForeignKey(SimulationCase)
+
+    def __unicode__(self):
+        return "Component "+self.comp_type+" with name "+self.comp_tag+" at "+self.comp_pos+" in sheet "+self.sheet_name+".csv"
+
+
+class Resistor(models.Model):
+    comp_type = models.CharField(max_length=100, default="Resistor")
+    comp_number = models.IntegerField()
+    comp_pos_3D = models.CharField(max_length=50)
+    comp_pos = models.CharField(max_length=50)
+    comp_sheet = models.IntegerField()
+    sheet_name = models.CharField(max_length=200)
+    comp_tag = models.CharField(max_length=100)
+    comp_ckt = models.ForeignKey(CircuitSchematics)
+
+    comp_has_voltage = models.CharField(max_length=5, default="no")
+    comp_is_meter = models.CharField(max_length=5, default="no")
+    comp_has_control = models.CharField(max_length=5, default="no")
+    comp_resistor = models.FloatField(default=100.0, verbose_name="Resistor value")
+
+    def __unicode__(self):
+        return "Component "+self.comp_type+" with name "+self.comp_tag+" at "+self.comp_pos+" in sheet "+self.sheet_name+".csv"
+
+
+class ResistorForm(ModelForm):
+    class Meta:
+        model = Resistor
+        fields = ('comp_resistor', )
