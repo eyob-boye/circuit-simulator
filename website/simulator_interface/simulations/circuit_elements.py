@@ -4,7 +4,9 @@ import sys
 import math
 import circuit_exceptions as CktEx
 import network_reader as NwRdr
-
+from django.forms.models import model_to_dict
+from models import SimulationCase, SimulationCaseForm, CircuitSchematics, CircuitSchematicsForm, CircuitComponents
+import models
 
 class Resistor:
     """
@@ -133,6 +135,56 @@ class Resistor:
     def determine_state(self, br_currents, sys_branches, sys_events):
         pass
 
+    def create_form_values(self, sim_id, branch_map):
+        sim_para_model = models.SimulationCase.objects.get(id=sim_id)
+        ckt_file_list = sim_para_model.circuitschematics_set.all()
+        comp_found = False
+        for ckt_file_item in ckt_file_list:
+            try:
+                check_resistor = ckt_file_item.resistor_set.all().\
+                        filter(comp_tag=self.tag)
+            except:
+                comp_found = False
+            else:
+                if check_resistor:
+                    comp_found = True
+                    old_resistor = check_resistor[0]
+                    old_resistor.comp_number = self.number
+                    old_resistor.comp_pos_3D = self.pos_3D
+                    old_resistor.comp_pos = self.pos
+                    old_resistor.comp_sheet = self.sheet
+                    old_resistor.save()
+                    ckt_file_item.save()
+
+        if not comp_found:
+            new_resistor = models.Resistor()
+            new_resistor.comp_number = self.number
+            new_resistor.comp_pos_3D = self.pos_3D
+            new_resistor.comp_pos = self.pos
+            new_resistor.comp_sheet = self.sheet
+            new_resistor.sheet_name = self.sheet_name.split(".csv")[0]
+            new_resistor.comp_tag = self.tag
+            ckt_file_item = ckt_file_list.filter(ckt_file_name=self.sheet_name)
+            new_resistor.comp_ckt = ckt_file_item[0]
+            new_resistor.save()
+        sim_para_model.save()
+        
+        return
+
+
+    def list_existing_components(self, ckt_file):
+        try:
+            check_resistor = models.Resistor.objects.all().\
+                        filter(sheet_name=ckt_file.ckt_file_name.split(".csv")[0]).\
+                        filter(comp_tag=self.tag)
+        except:
+            comp_list = []
+        else:
+            if check_resistor and len(check_resistor)==1:
+                comp_list = check_resistor[0]
+            else:
+                comp_list = []
+        return comp_list
 
 
 class Variable_Resistor:
@@ -278,6 +330,8 @@ class Variable_Resistor:
     def determine_state(self, br_currents, sys_branches, sys_events):
         pass
 
+    def create_form_values(self, sim_id, branch_map):
+        pass
 
 
 class Inductor:
@@ -418,6 +472,53 @@ class Inductor:
     def determine_state(self, br_currents, sys_branches, sys_events):
         pass
 
+    def create_form_values(self, sim_id, branch_map):
+        sim_para_model = models.SimulationCase.objects.get(id=sim_id)
+        ckt_file_list = sim_para_model.circuitschematics_set.all()
+        comp_found = False
+        for ckt_file_item in ckt_file_list:
+            try:
+                check_inductor = ckt_file_item.inductor_set.all().\
+                        filter(comp_tag=self.tag)
+            except:
+                comp_found = False
+            else:
+                if check_inductor:
+                    comp_found = True
+                    old_inductor = check_inductor[0]
+                    old_inductor.comp_number = self.number
+                    old_inductor.comp_pos_3D = self.pos_3D
+                    old_inductor.comp_pos = self.pos
+                    old_inductor.comp_sheet = self.sheet
+                    old_inductor.save()
+                    ckt_file_item.save()
+
+        if not comp_found:
+            new_inductor = models.Inductor()
+            new_inductor.comp_number = self.number
+            new_inductor.comp_pos_3D = self.pos_3D
+            new_inductor.comp_pos = self.pos
+            new_inductor.comp_sheet = self.sheet
+            new_inductor.sheet_name = self.sheet_name.split(".csv")[0]
+            new_inductor.comp_tag = self.tag
+            ckt_file_item = ckt_file_list.filter(ckt_file_name=self.sheet_name)
+            new_inductor.comp_ckt = ckt_file_item[0]
+            new_inductor.save()
+        sim_para_model.save()
+
+    def list_existing_components(self, ckt_file):
+        try:
+            check_inductor = models.Inductor.objects.all().\
+                        filter(sheet_name=ckt_file.ckt_file_name.split(".csv")[0]).\
+                        filter(comp_tag=self.tag)
+        except:
+            comp_list = []
+        else:
+            if check_inductor and len(check_inductor)==1:
+                comp_list = check_inductor[0]
+            else:
+                comp_list = []
+        return comp_list
 
 
 class Variable_Inductor:
@@ -583,6 +684,8 @@ class Variable_Inductor:
     def determine_state(self, br_currents, sys_branches, sys_events):
         pass
 
+    def create_form_values(self, sim_id, branch_map):
+        pass
 
 
 class Capacitor:
@@ -808,6 +911,11 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
     def determine_state(self, br_currents, sys_branches, sys_events):
         pass
 
+    def create_form_values(self, sim_id, branch_map):
+        pass
+
+    def list_existing_components(self, ckt_file):
+        pass
 
 
 
@@ -1010,6 +1118,11 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
     def determine_state(self, br_currents, sys_branches, sys_events):
         pass
 
+    def create_form_values(self, sim_id, branch_map):
+        pass
+
+    def list_existing_components(self, ckt_file):
+        pass
 
 
 class Ammeter:
@@ -1199,6 +1312,11 @@ Check ammeter at %s in sheet %s" %(self.pos, self.sheet_name)
     def determine_state(self, br_currents, sys_branches, sys_events):
         pass
 
+    def create_form_values(self, sim_id, branch_map):
+        pass
+
+    def list_existing_components(self, ckt_file):
+        pass
 
 
 
@@ -1424,7 +1542,11 @@ Check voltmeter at %s in sheet %s" %(self.pos, self.sheet_name)
     def determine_state(self, br_currents, sys_branches, sys_events):
         pass
 
+    def create_form_values(self, sim_id, branch_map):
+        pass
 
+    def list_existing_components(self, ckt_file):
+        pass
 
 
 class Current_Source:
@@ -1717,6 +1839,8 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
     def determine_state(self, br_currents, sys_branches, sys_events):
         pass
 
+    def create_form_values(self, sim_id, branch_map):
+        pass
 
 
 
@@ -1906,6 +2030,8 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
     def determine_state(self, br_currents, sys_branches, sys_events):
         pass
 
+    def create_form_values(self, sim_id, branch_map):
+        pass
 
 
 class Diode:
@@ -2322,6 +2448,11 @@ Check diode at %s in sheet %s" %(self.pos, self.sheet_name)
 
         return
 
+    def create_form_values(self, sim_id, branch_map):
+        pass
+
+    def list_existing_components(self, ckt_file):
+        pass
 
 
 class Switch:
@@ -2754,6 +2885,9 @@ Check switch at %s in sheet %s" %(self.pos, self.sheet_name)
             self.resistor = self.resistor_on
 
         return
+
+    def create_form_values(self, sim_id, branch_map):
+        pass
 
 
 nonlinear_freewheel_components = ["Switch", "Diode"]

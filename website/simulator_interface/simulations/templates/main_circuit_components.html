@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+
+{% extends "base_framework.html" %}
+
+<head>
+	<title>
+	</title>
+</head>
+
+<body>
+	<br><br>
+	{% block main_body_content %}
+		<form action="" method="post">
+		{% for ckt_item in ckt_schematics_update %}
+			{% for ckt_comps in ckt_item %}
+					{{ ckt_comps.comp_type }}<br>
+					{{ ckt_comps.comp_tag }}<br>
+					{{ ckt_comps.comp_pos }}<br>
+					{{ ckt_comps.sheet_name }}<br> <br>
+			{% endfor %}
+			<br><br><br>
+		{% endfor %}
+
+		<input type="hidden" name="sim_id" value="{{ sim_id }}">
+		<input type="hidden" name="sim_state" value="{{ sim_state }}">
+		{% csrf_token %}
+		</form>
+	{% endblock %}
+</body>

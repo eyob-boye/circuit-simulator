@@ -108,25 +108,263 @@ class CircuitComponents(models.Model):
 
 
 class Resistor(models.Model):
-    comp_type = models.CharField(max_length=100, default="Resistor")
+    comp_type = models.CharField(max_length=100, default="Resistor", \
+            verbose_name="Component type")
     comp_number = models.IntegerField()
-    comp_pos_3D = models.CharField(max_length=50)
-    comp_pos = models.CharField(max_length=50)
+    comp_pos_3D = models.CharField(max_length=50, \
+            verbose_name="Component position")
+    comp_pos = models.CharField(max_length=50, \
+            verbose_name="Component position")
     comp_sheet = models.IntegerField()
-    sheet_name = models.CharField(max_length=200)
-    comp_tag = models.CharField(max_length=100)
+    sheet_name = models.CharField(max_length=200, \
+            verbose_name="Found in circuit schematic")
+    comp_tag = models.CharField(max_length=100, \
+            verbose_name="Component name")
     comp_ckt = models.ForeignKey(CircuitSchematics)
 
-    comp_has_voltage = models.CharField(max_length=5, default="no")
-    comp_is_meter = models.CharField(max_length=5, default="no")
-    comp_has_control = models.CharField(max_length=5, default="no")
+    comp_has_voltage = models.BooleanField(max_length=5, default=False)
+    comp_is_meter = models.BooleanField(max_length=5, default=False)
+    comp_has_control = models.BooleanField(max_length=5, default=False)
     comp_resistor = models.FloatField(default=100.0, verbose_name="Resistor value")
 
     def __unicode__(self):
-        return "Component "+self.comp_type+" with name "+self.comp_tag+" at "+self.comp_pos+" in sheet "+self.sheet_name+".csv"
+        return "Component "+self.comp_type+" with name "+self.comp_tag+" at "+\
+                self.comp_pos+" in sheet "+self.sheet_name+\
+                ".csv"+" has value "+str(self.comp_resistor)+" Ohms"
 
 
 class ResistorForm(ModelForm):
     class Meta:
         model = Resistor
         fields = ('comp_resistor', )
+
+
+class Inductor(models.Model):
+    comp_type = models.CharField(max_length=100, default="Inductor", \
+            verbose_name="Component type")
+    comp_number = models.IntegerField()
+    comp_pos_3D = models.CharField(max_length=50, \
+            verbose_name="Component position")
+    comp_pos = models.CharField(max_length=50, \
+            verbose_name="Component position")
+    comp_sheet = models.IntegerField()
+    sheet_name = models.CharField(max_length=200, \
+            verbose_name="Found in circuit schematic")
+    comp_tag = models.CharField(max_length=100, \
+            verbose_name="Component name")
+    comp_ckt = models.ForeignKey(CircuitSchematics)
+
+    comp_has_voltage = models.BooleanField(max_length=5, default=False)
+    comp_is_meter = models.BooleanField(max_length=5, default=False)
+    comp_has_control = models.BooleanField(max_length=5, default=False)
+    comp_inductor = models.FloatField(default=0.001, verbose_name="Inductor value")
+
+    def __unicode__(self):
+        return "Component "+self.comp_type+" with name "+self.comp_tag+" at "+\
+                self.comp_pos+" in sheet "+self.sheet_name+\
+                ".csv"+" has value "+str(self.comp_inductor)+" Henry"
+
+
+class InductorForm(ModelForm):
+    class Meta:
+        model = Inductor
+        fields = ('comp_inductor', )
+
+
+class Capacitor(models.Model):
+    comp_type = models.CharField(max_length=100, default="Capacitor", \
+            verbose_name="Component type")
+    comp_number = models.IntegerField()
+    comp_pos_3D = models.CharField(max_length=50, \
+            verbose_name="Component position")
+    comp_pos = models.CharField(max_length=50, \
+            verbose_name="Component position")
+    comp_sheet = models.IntegerField()
+    sheet_name = models.CharField(max_length=200, \
+            verbose_name="Found in circuit schematic")
+    comp_tag = models.CharField(max_length=100, \
+            verbose_name="Component name")
+    comp_ckt = models.ForeignKey(CircuitSchematics)
+    
+    comp_polarity_3D = models.CharField(max_length=50, \
+            verbose_name="Positive polarity towards")
+    comp_polarity = models.CharField(max_length=50, \
+            verbose_name="Positive polarity towards")
+
+    comp_has_voltage = models.BooleanField(max_length=5, default=True)
+    comp_is_meter = models.BooleanField(max_length=5, default=False)
+    comp_has_control = models.BooleanField(max_length=5, default=False)
+    comp_capacitor = models.FloatField(default=10.0e-6, verbose_name="Capacitor value")
+
+    def __unicode__(self):
+        return "Component "+self.comp_type+" with name "+self.comp_tag+" at "+\
+                self.comp_pos+" in sheet "+self.sheet_name+".csv"+\
+                " has value "+self.comp_capacitor+" Farad"
+
+
+class CapacitorForm(ModelForm):
+    class Meta:
+        model = Capacitor
+        fields = ('comp_capacitor', \
+                'comp_polarity')
+
+
+class Voltage_Source(models.Model):
+    comp_type = models.CharField(max_length=100, default="Voltage Source", \
+            verbose_name="Component type")
+    comp_number = models.IntegerField()
+    comp_pos_3D = models.CharField(max_length=50, \
+            verbose_name="Component position")
+    comp_pos = models.CharField(max_length=50, \
+            verbose_name="Component position")
+    comp_sheet = models.IntegerField()
+    sheet_name = models.CharField(max_length=200, \
+            verbose_name="Found in circuit schematic")
+    comp_tag = models.CharField(max_length=100, \
+            verbose_name="Component name")
+    comp_ckt = models.ForeignKey(CircuitSchematics)
+    
+    comp_polarity_3D = models.CharField(max_length=50, \
+            verbose_name="Positive polarity towards")
+    comp_polarity = models.CharField(max_length=50, \
+            verbose_name="Positive polarity towards")
+
+    comp_has_voltage = models.BooleanField(max_length=5, default=True)
+    comp_is_meter = models.BooleanField(max_length=5, default=False)
+    comp_has_control = models.BooleanField(max_length=5, default=False)
+    comp_volt_peak = models.FloatField(default=120.0, verbose_name="Peak voltage")
+    comp_volt_freq = models.FloatField(default=60.0, verbose_name="Voltage frequency")
+    comp_volt_phase = models.FloatField(default=0.0, verbose_name="Phase angle (degrees)")
+    comp_volt_offset = models.FloatField(default=0.0, verbose_name="Dc offset")
+
+    def __unicode__(self):
+        return "Component "+self.comp_type+" with name "+self.comp_tag+" at "+\
+                self.comp_pos+" in sheet "+self.sheet_name+".csv"+\
+                " has peak value "+self.volt_peak+" Volts"
+
+
+class Voltage_SourceForm(ModelForm):
+    class Meta:
+        model = Voltage_Source
+        fields = ('comp_volt_peak', \
+                'comp_volt_peak', \
+                'comp_volt_freq', \
+                'comp_volt_phase', \
+                'comp_volt_offset', \
+                'comp_polarity')
+
+
+class Ammeter(models.Model):
+    comp_type = models.CharField(max_length=100, default="Ammeter", \
+            verbose_name="Component type")
+    comp_number = models.IntegerField()
+    comp_pos_3D = models.CharField(max_length=50, \
+            verbose_name="Component position")
+    comp_pos = models.CharField(max_length=50, \
+            verbose_name="Component position")
+    comp_sheet = models.IntegerField()
+    sheet_name = models.CharField(max_length=200, \
+            verbose_name="Found in circuit schematic")
+    comp_tag = models.CharField(max_length=100, \
+            verbose_name="Component name")
+    comp_ckt = models.ForeignKey(CircuitSchematics)
+    
+    comp_polarity_3D = models.CharField(max_length=50, \
+            verbose_name="Positive polarity towards")
+    comp_polarity = models.CharField(max_length=50, \
+            verbose_name="Positive polarity towards")
+
+    comp_has_voltage = models.BooleanField(max_length=5, default=False)
+    comp_is_meter = models.BooleanField(max_length=5, default=True)
+    comp_has_control = models.BooleanField(max_length=5, default=False)
+
+    def __unicode__(self):
+        return "Component "+self.comp_type+" with name "+self.comp_tag+" at "+\
+                self.comp_pos+" in sheet "+self.sheet_name+".csv"
+
+
+class AmmeterForm(ModelForm):
+    class Meta:
+        model = Ammeter
+        fields = ('comp_polarity', )
+
+
+class Voltmeter(models.Model):
+    comp_type = models.CharField(max_length=100, default="Voltmeter", \
+            verbose_name="Component type")
+    comp_number = models.IntegerField()
+    comp_pos_3D = models.CharField(max_length=50, \
+            verbose_name="Component position")
+    comp_pos = models.CharField(max_length=50, \
+            verbose_name="Component position")
+    comp_sheet = models.IntegerField()
+    sheet_name = models.CharField(max_length=200, \
+            verbose_name="Found in circuit schematic")
+    comp_tag = models.CharField(max_length=100, \
+            verbose_name="Component name")
+    comp_ckt = models.ForeignKey(CircuitSchematics)
+    
+    comp_polarity_3D = models.CharField(max_length=50, \
+            verbose_name="Positive polarity towards")
+    comp_polarity = models.CharField(max_length=50, \
+            verbose_name="Positive polarity towards")
+    
+    comp_volt_level = models.FloatField(default=120.0, \
+            verbose_name="Rated voltage level to be measured")
+
+    comp_has_voltage = models.BooleanField(max_length=5, default=False)
+    comp_is_meter = models.BooleanField(max_length=5, default=True)
+    comp_has_control = models.BooleanField(max_length=5, default=False)
+
+    def __unicode__(self):
+        return "Component "+self.comp_type+" with name "+self.comp_tag+" at "+\
+                self.comp_pos+" in sheet "+self.sheet_name+".csv"
+
+
+class VoltmeterForm(ModelForm):
+    class Meta:
+        model = Voltmeter
+        fields = ('comp_volt_level', \
+                'comp_polarity')
+
+
+class Diode(models.Model):
+    comp_type = models.CharField(max_length=100, default="Diode", \
+            verbose_name="Component type")
+    comp_number = models.IntegerField()
+    comp_pos_3D = models.CharField(max_length=50, \
+            verbose_name="Component position")
+    comp_pos = models.CharField(max_length=50, \
+            verbose_name="Component position")
+    comp_sheet = models.IntegerField()
+    sheet_name = models.CharField(max_length=200, \
+            verbose_name="Found in circuit schematic")
+    comp_tag = models.CharField(max_length=100, \
+            verbose_name="Component name")
+    comp_ckt = models.ForeignKey(CircuitSchematics)
+    
+    comp_polarity_3D = models.CharField(max_length=50, \
+            verbose_name="Cathode polarity towards")
+    comp_polarity = models.CharField(max_length=50, \
+            verbose_name="Cathode polarity towards")
+    
+    comp_volt_level = models.FloatField(default=120.0, \
+            verbose_name="Rated voltage level")
+
+    comp_has_voltage = models.BooleanField(max_length=5, default=False)
+    comp_is_meter = models.BooleanField(max_length=5, default=True)
+    comp_has_control = models.BooleanField(max_length=5, default=False)
+
+    def __unicode__(self):
+        return "Component "+self.comp_type+" with name "+self.comp_tag+" at "+\
+                self.comp_pos+" in sheet "+self.sheet_name+".csv"
+
+
+class DiodeForm(ModelForm):
+    class Meta:
+        model = Diode
+        fields = ('comp_volt_level', \
+                'comp_polarity')
+
+
+
