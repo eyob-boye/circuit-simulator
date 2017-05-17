@@ -85,6 +85,9 @@ class CircuitSchematics(models.Model):
     ckt_file_name = models.CharField(max_length=300)
     ckt_sim_case = models.ForeignKey(SimulationCase)
 
+    def __unicode__(self):
+        return "Circuit spreadsheet "+self.ckt_file_name+" with description "+self.ckt_file_descrip
+
 
 class CircuitSchematicsForm(ModelForm):
     class Meta:
@@ -199,7 +202,7 @@ class Capacitor(models.Model):
     def __unicode__(self):
         return "Component "+self.comp_type+" with name "+self.comp_tag+" at "+\
                 self.comp_pos+" in sheet "+self.sheet_name+".csv"+\
-                " has value "+self.comp_capacitor+" Farad"
+                " has value "+str(self.comp_capacitor)+" Farad"
 
 
 class CapacitorForm(ModelForm):
@@ -240,7 +243,7 @@ class Voltage_Source(models.Model):
     def __unicode__(self):
         return "Component "+self.comp_type+" with name "+self.comp_tag+" at "+\
                 self.comp_pos+" in sheet "+self.sheet_name+".csv"+\
-                " has peak value "+self.volt_peak+" Volts"
+                " has peak value "+str(self.comp_volt_peak)+" Volts"
 
 
 class Voltage_SourceForm(ModelForm):

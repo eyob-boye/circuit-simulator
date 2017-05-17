@@ -11,21 +11,25 @@
 	<br><br>
 	{% block main_body_content %}
 		<form action="" method="post">
-		{% for ckt_item in ckt_schematics_update %}
+		{% for ckt_item in ckt_component_list %}
 			<table>
 			<tr style="padding:35px">
 			<td style="text-align:left; padding:25px">{{ forloop.counter }}</td>
-			<td>File name: {{ ckt_item.ckt_file_name }}<br>
-			File description: {{ ckt_item.ckt_file_descrip }} <br>
-			<input type="submit" name="edit_ckt_para_{{ ckt_item.id }}"
-			value="View components">
+			<td>
+			{% if ckt_item.0 %}
+				{% for comp_spec in ckt_item.0 %}
+					{{ comp_spec.0 }}: {{ comp_spec.1 }} <br>
+				{% endfor %}
+			{% endif %}
+			<input type="submit" name="edit_comp_para_{{ ckt_item.1.id }}"
+			value="Edit parameters">
 			<br><br>
 			</td>
 			</tr>
 			</table>
 		{% endfor %}
 		
-		<input type="submit" name="main_page" value="Back to main page">
+		<input type="submit" name="edit_ckt_parameters" value="Back to circuit list">
 
 		<input type="hidden" name="sim_id" value="{{ sim_id }}">
 		<input type="hidden" name="sim_state" value="{{ sim_state }}">

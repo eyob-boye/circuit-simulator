@@ -2,6 +2,7 @@ from django.shortcuts import render
 from django.http import HttpResponse
 from django.forms.models import model_to_dict
 from models import SimulationCase, SimulationCaseForm, CircuitSchematics, CircuitSchematicsForm, CircuitComponents
+import models
 import os
 import network_reader as NwRdr
 import circuit_elements as CktElem
@@ -506,7 +507,8 @@ def new_simulation(request):
                 'ckt_error_list' : ckt_error_list})
 
         elif "edit_ckt_parameters" in request.POST and \
-                request.POST["edit_ckt_parameters"]=="Edit circuit parameters":
+                (request.POST["edit_ckt_parameters"]=="Edit circuit parameters" or \
+                request.POST["edit_ckt_parameters"]=="Back to circuit list"):
             if "sim_id" in request.POST:
                 sim_id = int(request.POST["sim_id"])
             if "sim_state" in request.POST:
@@ -525,21 +527,8 @@ def new_simulation(request):
                 
                 ckt_file_list = sim_para_model.circuitschematics_set.all()
                 for ckt_file_item in ckt_file_list:
-                    ckt_component_list = []
-                    for comp_items in component_objects.keys():
-                        comp_searched = component_objects[comp_items].\
-                            list_existing_components(ckt_file_item)
-                        if comp_searched:
-                            ckt_component_list.append\
-                                (comp_searched)
-                    all_ckt_component_list.append(ckt_component_list)
+                    all_ckt_component_list.append(ckt_file_item)
 
-            print("Sixth check")
-            for c1 in range(len(all_ckt_component_list)):
-                for c2 in range(len(all_ckt_component_list[c1])):
-                    print(all_ckt_component_list[c1][c2])
-            print
-            print
             return render(request,
                 "main_circuit_components.html",
                 {'sim_id' : sim_id,
@@ -548,6 +537,8 @@ def new_simulation(request):
                 'ckt_error_list' : ckt_error_list})
             
         else:
+            if "sim_state" in request.POST:
+                sim_state = int(request.POST["sim_state"])
             if "sim_id" in request.POST:
                 sim_id = int(request.POST["sim_id"])
                 if sim_id>0:
@@ -559,8 +550,6 @@ def new_simulation(request):
                     if ckt_ids_for_removal:
                         for ckt_ids in ckt_ids_for_removal:
                             if ckt_ids in request.POST and request.POST[ckt_ids]=="Remove circuit":
-                                if "sim_state" in request.POST:
-                                    sim_state = int(request.POST["sim_state"])
 
                                 for ckt_item_id in ckt_ids_for_removal:
                                     if ckt_item_id in request.POST:
@@ -580,6 +569,49 @@ def new_simulation(request):
                                                     CircuitSchematicsForm(instance=ckt_file_item)])
                                 else:
                                     ckt_schematic_form.append([[], CircuitSchematicsForm()])
+
+                                return render(request,
+                                    "edit_circuit_schematic.html",
+                                    {'sim_id' : sim_id,
+                                    'sim_state' : sim_state,
+                                    'ckt_schematic_form' : ckt_schematic_form,
+                                    'ckt_errors' : ckt_errors})
+
+                    ckts_for_para_update = []
+                    for ckt_file_item in ckt_file_list:
+                        ckts_for_para_update.append("edit_ckt_para"+"_"+str(ckt_file_item.id))
+                    if ckts_for_para_update:
+                        for ckt_ids in ckts_for_para_update:
+                            if ckt_ids in request.POST and request.POST[ckt_ids]=="View components":
+                                ckt_component_list = []
+                                recd_ckt_id = int(ckt_ids.split("_")[-1])
+                                recd_ckt_item = CircuitSchematics.objects.get(id=recd_ckt_id)
+                                components_found, component_objects, \
+                                        circuit_analysis_components, ckt_error_list = \
+                                        generate_component_data(sim_para_model)
+                                if not ckt_error_list:
+                                    branch_map = circuit_analysis_components[1]
+                                    for comp_items in component_objects.keys():
+                                        comp_form_data = []
+                                        comp_info = component_objects[comp_items].\
+                                                comp_as_a_dict(recd_ckt_item)
+                                        comp_model = component_objects[comp_items].\
+                                                list_existing_components(recd_ckt_item)
+                                        comp_form = component_objects[comp_items].\
+                                                comp_as_a_form(recd_ckt_item)
+                                        if comp_info:
+                                            comp_form_data.append(comp_info)
+                                            comp_form_data.append(comp_model)
+                                            comp_form_data.append(comp_form)
+                                            comp_form_data.append(0)
+                                            ckt_component_list.append(comp_form_data)
+
+                                return render(request,
+                                    "edit_circuit_parameters.html",
+                                    {'sim_id' : sim_id,
+                                    'sim_state' : sim_state,
+                                    'ckt_component_list' : ckt_component_list,
+                                    'ckt_errors' : ckt_error_list})
 
     if sim_state==1:
         return render(request,

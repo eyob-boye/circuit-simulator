@@ -174,14 +174,45 @@ class Resistor:
 
     def list_existing_components(self, ckt_file):
         try:
-            check_resistor = models.Resistor.objects.all().\
-                        filter(sheet_name=ckt_file.ckt_file_name.split(".csv")[0]).\
+            check_resistor = ckt_file.resistor_set.all().\
                         filter(comp_tag=self.tag)
         except:
             comp_list = []
         else:
             if check_resistor and len(check_resistor)==1:
                 comp_list = check_resistor[0]
+            else:
+                comp_list = []
+        return comp_list
+    
+    def comp_as_a_dict(self, ckt_file):
+        try:
+            check_resistor = ckt_file.resistor_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            comp_list = []
+        else:
+            if check_resistor and len(check_resistor)==1:
+                comp_list = []
+                comp_list.append(["Component type", check_resistor[0].comp_type])
+                comp_list.append(["Component name", check_resistor[0].comp_tag])
+                comp_list.append(["Found in circuit schematic", check_resistor[0].sheet_name])
+                comp_list.append(["Component position", check_resistor[0].comp_pos])
+                comp_list.append(["Resistor value", check_resistor[0].comp_resistor])
+            else:
+                comp_list = []
+        return comp_list
+
+    def comp_as_a_form(self, ckt_file):
+        try:
+            check_resistor = ckt_file.resistor_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            comp_list = []
+        else:
+            if check_resistor and len(check_resistor)==1:
+                comp_list = models.ResistorForm(instance=check_resistor[0])
+                
             else:
                 comp_list = []
         return comp_list
@@ -406,8 +437,7 @@ class Inductor:
         if self.ind_elem[1]<len(ckt_mat[self.sheet][0])-1:
             if ckt_mat[self.sheet][self.ind_elem[0]][self.ind_elem[1]+1]:
                 self.polrty = [self.ind_elem[0], self.ind_elem[1]+1]
-        
-        
+
         x_list.append(ind_params)
 
         return
@@ -508,14 +538,44 @@ class Inductor:
 
     def list_existing_components(self, ckt_file):
         try:
-            check_inductor = models.Inductor.objects.all().\
-                        filter(sheet_name=ckt_file.ckt_file_name.split(".csv")[0]).\
+            check_inductor = ckt_file.inductor_set.all().\
                         filter(comp_tag=self.tag)
         except:
             comp_list = []
         else:
             if check_inductor and len(check_inductor)==1:
                 comp_list = check_inductor[0]
+            else:
+                comp_list = []
+        return comp_list
+
+    def comp_as_a_dict(self, ckt_file):
+        try:
+            check_inductor = ckt_file.inductor_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            comp_list = []
+        else:
+            if check_inductor and len(check_inductor)==1:
+                comp_list = []
+                comp_list.append(["Component type", check_inductor[0].comp_type])
+                comp_list.append(["Component name", check_inductor[0].comp_tag])
+                comp_list.append(["Found in circuit schematic", check_inductor[0].sheet_name])
+                comp_list.append(["Component position", check_inductor[0].comp_pos])
+                comp_list.append(["Inductor value", check_inductor[0].comp_inductor])
+            else:
+                comp_list = []
+        return comp_list
+
+    def comp_as_a_form(self, ckt_file):
+        try:
+            check_inductor = ckt_file.inductor_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            comp_list = []
+        else:
+            if check_inductor and len(check_inductor)==1:
+                comp_list = models.InductorForm(instance=check_inductor[0])
             else:
                 comp_list = []
         return comp_list
@@ -912,11 +972,103 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
         pass
 
     def create_form_values(self, sim_id, branch_map):
-        pass
+        sim_para_model = models.SimulationCase.objects.get(id=sim_id)
+        ckt_file_list = sim_para_model.circuitschematics_set.all()
+        comp_found = False
+        for ckt_file_item in ckt_file_list:
+            try:
+                check_capacitor = ckt_file_item.capacitor_set.all().\
+                        filter(comp_tag=self.tag)
+            except:
+                comp_found = False
+            else:
+                if check_capacitor:
+                    comp_found = True
+                    old_capacitor = check_capacitor[0]
+                    old_capacitor.comp_number = self.number
+                    old_capacitor.comp_pos_3D = self.pos_3D
+                    old_capacitor.comp_pos = self.pos
+                    old_capacitor.comp_sheet = self.sheet
+                    old_capacitor.save()
+                    ckt_file_item.save()
+
+        if not comp_found:
+            new_capacitor = models.Capacitor()
+            new_capacitor.comp_number = self.number
+            new_capacitor.comp_pos_3D = self.pos_3D
+            new_capacitor.comp_pos = self.pos
+            new_capacitor.comp_sheet = self.sheet
+            new_capacitor.sheet_name = self.sheet_name.split(".csv")[0]
+            new_capacitor.comp_tag = self.tag
+            for c1 in range(len(branch_map)):
+                for c2 in range(c1+1, len(branch_map)):
+                    for c3 in range(len(branch_map[c1][c2])):
+                        if NwRdr.csv_tuple(self.pos_3D) in branch_map[c1][c2][c3]:
+                            pos_in_branch = branch_map[c1][c2][c3].\
+                                    index(NwRdr.csv_tuple(self.pos_3D))
+                            prev_element = branch_map[c1][c2][c3][pos_in_branch-1]
+                            new_capacitor.comp_polarity_3D = NwRdr.csv_element(prev_element)
+                            new_capacitor.comp_polarity = \
+                                    NwRdr.csv_element_2D(prev_element[1:])
+            print("Capacitor")
+            print(new_capacitor.comp_pos_3D)
+            print(new_capacitor.comp_polarity_3D)
+            print(new_capacitor.comp_pos)
+            print(new_capacitor.comp_polarity)
+            print
+            print
+            ckt_file_item = ckt_file_list.filter(ckt_file_name=self.sheet_name)
+            new_capacitor.comp_ckt = ckt_file_item[0]
+            new_capacitor.save()
+        sim_para_model.save()
+
+        return
+
 
     def list_existing_components(self, ckt_file):
-        pass
+        try:
+            check_capacitor = ckt_file.capacitor_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            comp_list = []
+        else:
+            if check_capacitor and len(check_capacitor)==1:
+                comp_list = check_capacitor[0]
+            else:
+                comp_list = []
+        return comp_list
 
+    def comp_as_a_dict(self, ckt_file):
+        try:
+            check_capacitor = ckt_file.capacitor_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            comp_list = []
+        else:
+            if check_capacitor and len(check_capacitor)==1:
+                comp_list = []
+                comp_list.append(["Component type", check_capacitor[0].comp_type])
+                comp_list.append(["Component name", check_capacitor[0].comp_tag])
+                comp_list.append(["Found in circuit schematic", check_capacitor[0].sheet_name])
+                comp_list.append(["Component position", check_capacitor[0].comp_pos])
+                comp_list.append(["Capacitor value", check_capacitor[0].comp_capacitor])
+                comp_list.append(["Positive polarity", check_capacitor[0].comp_polarity])
+            else:
+                comp_list = []
+        return comp_list
+
+    def comp_as_a_form(self, ckt_file):
+        try:
+            check_capacitor = ckt_file.capacitor_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            comp_list = []
+        else:
+            if check_capacitor and len(check_capacitor)==1:
+                comp_list = models.CapacitorForm(instance=check_capacitor[0])
+            else:
+                comp_list = []
+        return comp_list
 
 
 class Voltage_Source:
@@ -1119,10 +1271,109 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
         pass
 
     def create_form_values(self, sim_id, branch_map):
-        pass
+        sim_para_model = models.SimulationCase.objects.get(id=sim_id)
+        ckt_file_list = sim_para_model.circuitschematics_set.all()
+        comp_found = False
+        for ckt_file_item in ckt_file_list:
+            try:
+                check_voltagesource = ckt_file_item.voltage_source_set.all().\
+                        filter(comp_tag=self.tag)
+            except:
+                comp_found = False
+            else:
+                if check_voltagesource:
+                    comp_found = True
+                    old_voltagesource = check_voltagesource[0]
+                    old_voltagesource.comp_number = self.number
+                    old_voltagesource.comp_pos_3D = self.pos_3D
+                    old_voltagesource.comp_pos = self.pos
+                    old_voltagesource.comp_sheet = self.sheet
+                    old_voltagesource.save()
+                    ckt_file_item.save()
+
+        if not comp_found:
+            new_voltagesource = models.Voltage_Source()
+            new_voltagesource.comp_number = self.number
+            new_voltagesource.comp_pos_3D = self.pos_3D
+            new_voltagesource.comp_pos = self.pos
+            new_voltagesource.comp_sheet = self.sheet
+            new_voltagesource.sheet_name = self.sheet_name.split(".csv")[0]
+            new_voltagesource.comp_tag = self.tag
+            new_voltagesource.comp_volt_peak = self.v_peak
+            new_voltagesource.comp_volt_freq = self.v_freq
+            new_voltagesource.comp_volt_phase = self.v_phase
+            new_voltagesource.comp_volt_offset = self.v_offset
+            for c1 in range(len(branch_map)):
+                for c2 in range(c1+1, len(branch_map)):
+                    for c3 in range(len(branch_map[c1][c2])):
+                        if NwRdr.csv_tuple(self.pos_3D) in branch_map[c1][c2][c3]:
+                            pos_in_branch = branch_map[c1][c2][c3].\
+                                    index(NwRdr.csv_tuple(self.pos_3D))
+                            prev_element = branch_map[c1][c2][c3][pos_in_branch-1]
+                            new_voltagesource.comp_polarity_3D = NwRdr.csv_element(prev_element)
+                            new_voltagesource.comp_polarity = \
+                                    NwRdr.csv_element_2D(prev_element[1:])
+            print("Voltage source")
+            print(new_voltagesource.comp_pos_3D)
+            print(new_voltagesource.comp_polarity_3D)
+            print(new_voltagesource.comp_pos)
+            print(new_voltagesource.comp_polarity)
+            print
+            print
+            ckt_file_item = ckt_file_list.filter(ckt_file_name=self.sheet_name)
+            new_voltagesource.comp_ckt = ckt_file_item[0]
+            new_voltagesource.save()
+        sim_para_model.save()
+
+        return
 
     def list_existing_components(self, ckt_file):
-        pass
+        try:
+            check_voltagesource = ckt_file.voltage_source_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            comp_list = []
+        else:
+            if check_voltagesource and len(check_voltagesource)==1:
+                comp_list = check_voltagesource[0]
+            else:
+                comp_list = []
+        return comp_list
+
+    def comp_as_a_dict(self, ckt_file):
+        try:
+            check_voltagesource = ckt_file.voltage_source_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            comp_list = []
+        else:
+            if check_voltagesource and len(check_voltagesource)==1:
+                comp_list = []
+                comp_list.append(["Component type", check_voltagesource[0].comp_type])
+                comp_list.append(["Component name", check_voltagesource[0].comp_tag])
+                comp_list.append(["Found in circuit schematic", check_voltagesource[0].sheet_name])
+                comp_list.append(["Component position", check_voltagesource[0].comp_pos])
+                comp_list.append(["Peak value", check_voltagesource[0].comp_volt_peak])
+                comp_list.append(["Frequency", check_voltagesource[0].comp_volt_freq])
+                comp_list.append(["Phase angle", check_voltagesource[0].comp_volt_phase])
+                comp_list.append(["Dc offset", check_voltagesource[0].comp_volt_offset])
+                comp_list.append(["Positive polarity", check_voltagesource[0].comp_polarity])
+            else:
+                comp_list = []
+        return comp_list
+
+    def comp_as_a_form(self, ckt_file):
+        try:
+            check_voltagesource = ckt_file.voltage_source_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            comp_list = []
+        else:
+            if check_voltagesource and len(check_voltagesource)==1:
+                comp_list = models.Voltage_SourceForm(instance=check_voltagesource[0])
+            else:
+                comp_list = []
+        return comp_list
 
 
 class Ammeter:
@@ -1313,11 +1564,102 @@ Check ammeter at %s in sheet %s" %(self.pos, self.sheet_name)
         pass
 
     def create_form_values(self, sim_id, branch_map):
-        pass
+        sim_para_model = models.SimulationCase.objects.get(id=sim_id)
+        ckt_file_list = sim_para_model.circuitschematics_set.all()
+        comp_found = False
+        for ckt_file_item in ckt_file_list:
+            try:
+                check_ammeter = ckt_file_item.ammeter_set.all().\
+                        filter(comp_tag=self.tag)
+            except:
+                comp_found = False
+            else:
+                if check_ammeter:
+                    comp_found = True
+                    old_ammeter = check_ammeter[0]
+                    old_ammeter.comp_number = self.number
+                    old_ammeter.comp_pos_3D = self.pos_3D
+                    old_ammeter.comp_pos = self.pos
+                    old_ammeter.comp_sheet = self.sheet
+                    old_ammeter.save()
+                    ckt_file_item.save()
+
+        if not comp_found:
+            new_ammeter = models.Ammeter()
+            new_ammeter.comp_number = self.number
+            new_ammeter.comp_pos_3D = self.pos_3D
+            new_ammeter.comp_pos = self.pos
+            new_ammeter.comp_sheet = self.sheet
+            new_ammeter.sheet_name = self.sheet_name.split(".csv")[0]
+            new_ammeter.comp_tag = self.tag
+            for c1 in range(len(branch_map)):
+                for c2 in range(c1+1, len(branch_map)):
+                    for c3 in range(len(branch_map[c1][c2])):
+                        if NwRdr.csv_tuple(self.pos_3D) in branch_map[c1][c2][c3]:
+                            pos_in_branch = branch_map[c1][c2][c3].\
+                                    index(NwRdr.csv_tuple(self.pos_3D))
+                            prev_element = branch_map[c1][c2][c3][pos_in_branch-1]
+                            new_ammeter.comp_polarity_3D = NwRdr.csv_element(prev_element)
+                            new_ammeter.comp_polarity = \
+                                    NwRdr.csv_element_2D(prev_element[1:])
+            print("Ammeter")
+            print(new_ammeter.comp_pos_3D)
+            print(new_ammeter.comp_polarity_3D)
+            print(new_ammeter.comp_pos)
+            print(new_ammeter.comp_polarity)
+            print
+            print
+            ckt_file_item = ckt_file_list.filter(ckt_file_name=self.sheet_name)
+            new_ammeter.comp_ckt = ckt_file_item[0]
+            new_ammeter.save()
+        sim_para_model.save()
+
+        return
 
     def list_existing_components(self, ckt_file):
-        pass
+        try:
+            check_ammeter = ckt_file.ammeter_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            comp_list = []
+        else:
+            if check_ammeter and len(check_ammeter)==1:
+                comp_list = check_ammeter[0]
+            else:
+                comp_list = []
+        return comp_list
 
+    def comp_as_a_dict(self, ckt_file):
+        try:
+            check_ammeter = ckt_file.ammeter_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            comp_list = []
+        else:
+            if check_ammeter and len(check_ammeter)==1:
+                comp_list = []
+                comp_list.append(["Component type", check_ammeter[0].comp_type])
+                comp_list.append(["Component name", check_ammeter[0].comp_tag])
+                comp_list.append(["Found in circuit schematic", check_ammeter[0].sheet_name])
+                comp_list.append(["Component position", check_ammeter[0].comp_pos])
+                comp_list.append(["Positive direction of current", \
+                        check_ammeter[0].comp_polarity])
+            else:
+                comp_list = []
+        return comp_list
+
+    def comp_as_a_form(self, ckt_file):
+        try:
+            check_ammeter = ckt_file.ammeter_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            comp_list = []
+        else:
+            if check_ammeter and len(check_ammeter)==1:
+                comp_list = models.AmmeterForm(instance=check_ammeter[0])
+            else:
+                comp_list = []
+        return comp_list
 
 
 class Voltmeter:
@@ -1543,10 +1885,104 @@ Check voltmeter at %s in sheet %s" %(self.pos, self.sheet_name)
         pass
 
     def create_form_values(self, sim_id, branch_map):
-        pass
+        sim_para_model = models.SimulationCase.objects.get(id=sim_id)
+        ckt_file_list = sim_para_model.circuitschematics_set.all()
+        comp_found = False
+        for ckt_file_item in ckt_file_list:
+            try:
+                check_voltmeter = ckt_file_item.voltmeter_set.all().\
+                        filter(comp_tag=self.tag)
+            except:
+                comp_found = False
+            else:
+                if check_voltmeter:
+                    comp_found = True
+                    old_voltmeter = check_voltmeter[0]
+                    old_voltmeter.comp_number = self.number
+                    old_voltmeter.comp_pos_3D = self.pos_3D
+                    old_voltmeter.comp_pos = self.pos
+                    old_voltmeter.comp_sheet = self.sheet
+                    old_voltmeter.save()
+                    ckt_file_item.save()
+
+        if not comp_found:
+            new_voltmeter = models.Voltmeter()
+            new_voltmeter.comp_number = self.number
+            new_voltmeter.comp_pos_3D = self.pos_3D
+            new_voltmeter.comp_pos = self.pos
+            new_voltmeter.comp_sheet = self.sheet
+            new_voltmeter.sheet_name = self.sheet_name.split(".csv")[0]
+            new_voltmeter.comp_tag = self.tag
+            new_voltmeter.comp_volt_level = self.vm_level
+            for c1 in range(len(branch_map)):
+                for c2 in range(c1+1, len(branch_map)):
+                    for c3 in range(len(branch_map[c1][c2])):
+                        if NwRdr.csv_tuple(self.pos_3D) in branch_map[c1][c2][c3]:
+                            pos_in_branch = branch_map[c1][c2][c3].\
+                                    index(NwRdr.csv_tuple(self.pos_3D))
+                            prev_element = branch_map[c1][c2][c3][pos_in_branch-1]
+                            new_voltmeter.comp_polarity_3D = NwRdr.csv_element(prev_element)
+                            new_voltmeter.comp_polarity = \
+                                    NwRdr.csv_element_2D(prev_element[1:])
+            print("Voltmeter")
+            print(new_voltmeter.comp_pos_3D)
+            print(new_voltmeter.comp_polarity_3D)
+            print(new_voltmeter.comp_pos)
+            print(new_voltmeter.comp_polarity)
+            print
+            print
+            ckt_file_item = ckt_file_list.filter(ckt_file_name=self.sheet_name)
+            new_voltmeter.comp_ckt = ckt_file_item[0]
+            new_voltmeter.save()
+        sim_para_model.save()
+
+        return
 
     def list_existing_components(self, ckt_file):
-        pass
+        try:
+            check_voltmeter = ckt_file.voltmeter_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            comp_list = []
+        else:
+            if check_voltmeter and len(check_voltmeter)==1:
+                comp_list = check_voltmeter[0]
+            else:
+                comp_list = []
+        return comp_list
+
+    def comp_as_a_dict(self, ckt_file):
+        try:
+            check_voltmeter = ckt_file.voltmeter_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            comp_list = []
+        else:
+            if check_voltmeter and len(check_voltmeter)==1:
+                comp_list = []
+                comp_list.append(["Component type", check_voltmeter[0].comp_type])
+                comp_list.append(["Component name", check_voltmeter[0].comp_tag])
+                comp_list.append(["Found in circuit schematic", check_voltmeter[0].sheet_name])
+                comp_list.append(["Component position", check_voltmeter[0].comp_pos])
+                comp_list.append(["Voltage level", check_voltmeter[0].comp_volt_level])
+                comp_list.append(["Positive direction of voltage", \
+                        check_voltmeter[0].comp_polarity])
+            else:
+                comp_list = []
+        return comp_list
+
+    def comp_as_a_form(self, ckt_file):
+        try:
+            check_voltmeter = ckt_file.voltmeter_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            comp_list = []
+        else:
+            if check_voltmeter and len(check_voltmeter)==1:
+                comp_list = models.VoltmeterForm(instance=check_voltmeter[0])
+            else:
+                comp_list = []
+        return comp_list
 
 
 class Current_Source:
@@ -2449,10 +2885,103 @@ Check diode at %s in sheet %s" %(self.pos, self.sheet_name)
         return
 
     def create_form_values(self, sim_id, branch_map):
-        pass
+        sim_para_model = models.SimulationCase.objects.get(id=sim_id)
+        ckt_file_list = sim_para_model.circuitschematics_set.all()
+        comp_found = False
+        for ckt_file_item in ckt_file_list:
+            try:
+                check_diode = ckt_file_item.diode_set.all().\
+                        filter(comp_tag=self.tag)
+            except:
+                comp_found = False
+            else:
+                if check_diode:
+                    comp_found = True
+                    old_diode = check_diode[0]
+                    old_diode.comp_number = self.number
+                    old_diode.comp_pos_3D = self.pos_3D
+                    old_diode.comp_pos = self.pos
+                    old_diode.comp_sheet = self.sheet
+                    old_diode.save()
+                    ckt_file_item.save()
+
+        if not comp_found:
+            new_diode = models.Diode()
+            new_diode.comp_number = self.number
+            new_diode.comp_pos_3D = self.pos_3D
+            new_diode.comp_pos = self.pos
+            new_diode.comp_sheet = self.sheet
+            new_diode.sheet_name = self.sheet_name.split(".csv")[0]
+            new_diode.comp_tag = self.tag
+            for c1 in range(len(branch_map)):
+                for c2 in range(c1+1, len(branch_map)):
+                    for c3 in range(len(branch_map[c1][c2])):
+                        if NwRdr.csv_tuple(self.pos_3D) in branch_map[c1][c2][c3]:
+                            pos_in_branch = branch_map[c1][c2][c3].\
+                                    index(NwRdr.csv_tuple(self.pos_3D))
+                            prev_element = branch_map[c1][c2][c3][pos_in_branch-1]
+                            new_diode.comp_polarity_3D = NwRdr.csv_element(prev_element)
+                            new_diode.comp_polarity = \
+                                    NwRdr.csv_element_2D(prev_element[1:])
+            print("Diode")
+            print(new_diode.comp_pos_3D)
+            print(new_diode.comp_polarity_3D)
+            print(new_diode.comp_pos)
+            print(new_diode.comp_polarity)
+            print
+            print
+            ckt_file_item = ckt_file_list.filter(ckt_file_name=self.sheet_name)
+            new_diode.comp_ckt = ckt_file_item[0]
+            new_diode.save()
+        sim_para_model.save()
+
+        return
 
     def list_existing_components(self, ckt_file):
-        pass
+        try:
+            check_diode = ckt_file.diode_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            comp_list = []
+        else:
+            if check_diode and len(check_diode)==1:
+                comp_list = check_diode[0]
+            else:
+                comp_list = []
+        return comp_list
+
+    def comp_as_a_dict(self, ckt_file):
+        try:
+            check_diode = ckt_file.diode_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            comp_list = []
+        else:
+            if check_diode and len(check_diode)==1:
+                comp_list = []
+                comp_list.append(["Component type", check_diode[0].comp_type])
+                comp_list.append(["Component name", check_diode[0].comp_tag])
+                comp_list.append(["Found in circuit schematic", check_diode[0].sheet_name])
+                comp_list.append(["Component position", check_diode[0].comp_pos])
+                comp_list.append(["Voltage level", check_diode[0].comp_volt_level])
+                comp_list.append(["Direction of cathode", \
+                        check_diode[0].comp_polarity])
+            else:
+                comp_list = []
+        return comp_list
+
+    def comp_as_a_form(self, ckt_file):
+        try:
+            check_diode = ckt_file.diode_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            comp_list = []
+        else:
+            if check_diode and len(check_diode)==1:
+                comp_list = models.DiodeForm(instance=check_diode[0])
+            else:
+                comp_list = []
+        return comp_list
 
 
 class Switch:
