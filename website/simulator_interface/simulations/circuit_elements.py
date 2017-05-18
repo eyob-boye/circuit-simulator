@@ -135,9 +135,9 @@ class Resistor:
     def determine_state(self, br_currents, sys_branches, sys_events):
         pass
 
-    def create_form_values(self, sim_id, branch_map):
-        sim_para_model = models.SimulationCase.objects.get(id=sim_id)
-        ckt_file_list = sim_para_model.circuitschematics_set.all()
+    def create_form_values(self, sim_para_model, ckt_file_list, branch_map):
+#        sim_para_model = models.SimulationCase.objects.get(id=sim_id)
+#        ckt_file_list = sim_para_model.circuitschematics_set.all()
         comp_found = False
         for ckt_file_item in ckt_file_list:
             try:
@@ -155,6 +155,7 @@ class Resistor:
                     old_resistor.comp_sheet = self.sheet
                     old_resistor.save()
                     ckt_file_item.save()
+                    break
 
         if not comp_found:
             new_resistor = models.Resistor()
@@ -196,7 +197,6 @@ class Resistor:
                 comp_list = []
                 comp_list.append(["Component type", check_resistor[0].comp_type])
                 comp_list.append(["Component name", check_resistor[0].comp_tag])
-                comp_list.append(["Found in circuit schematic", check_resistor[0].sheet_name])
                 comp_list.append(["Component position", check_resistor[0].comp_pos])
                 comp_list.append(["Resistor value", check_resistor[0].comp_resistor])
             else:
@@ -217,6 +217,19 @@ class Resistor:
                 comp_list = []
         return comp_list
 
+    def update_form_data(self, request, comp_model, branch_map):
+        received_form = models.ResistorForm(request.POST)
+        if received_form.is_valid():
+            received_data = received_form.cleaned_data
+            comp_model.comp_resistor = received_data["comp_resistor"]
+            comp_model.save()
+            form_status = []
+        else:
+            form_status = [received_form, ]
+        return form_status
+
+    def pre_run_check(self, ckt_file_item, branch_map):
+        pass
 
 class Variable_Resistor:
     """
@@ -502,9 +515,9 @@ class Inductor:
     def determine_state(self, br_currents, sys_branches, sys_events):
         pass
 
-    def create_form_values(self, sim_id, branch_map):
-        sim_para_model = models.SimulationCase.objects.get(id=sim_id)
-        ckt_file_list = sim_para_model.circuitschematics_set.all()
+    def create_form_values(self, sim_para_model, ckt_file_list, branch_map):
+#        sim_para_model = models.SimulationCase.objects.get(id=sim_id)
+#        ckt_file_list = sim_para_model.circuitschematics_set.all()
         comp_found = False
         for ckt_file_item in ckt_file_list:
             try:
@@ -522,6 +535,7 @@ class Inductor:
                     old_inductor.comp_sheet = self.sheet
                     old_inductor.save()
                     ckt_file_item.save()
+                    break
 
         if not comp_found:
             new_inductor = models.Inductor()
@@ -560,7 +574,6 @@ class Inductor:
                 comp_list = []
                 comp_list.append(["Component type", check_inductor[0].comp_type])
                 comp_list.append(["Component name", check_inductor[0].comp_tag])
-                comp_list.append(["Found in circuit schematic", check_inductor[0].sheet_name])
                 comp_list.append(["Component position", check_inductor[0].comp_pos])
                 comp_list.append(["Inductor value", check_inductor[0].comp_inductor])
             else:
@@ -579,6 +592,20 @@ class Inductor:
             else:
                 comp_list = []
         return comp_list
+
+    def update_form_data(self, request, comp_model, branch_map):
+        received_form = models.InductorForm(request.POST)
+        if received_form.is_valid():
+            received_data = received_form.cleaned_data
+            comp_model.comp_inductor = received_data["comp_inductor"]
+            comp_model.save()
+            form_status = []
+        else:
+            form_status = [received_form, ]
+        return form_status
+
+    def pre_run_check(self, ckt_file_item, branch_map):
+        pass
 
 
 class Variable_Inductor:
@@ -971,9 +998,9 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
     def determine_state(self, br_currents, sys_branches, sys_events):
         pass
 
-    def create_form_values(self, sim_id, branch_map):
-        sim_para_model = models.SimulationCase.objects.get(id=sim_id)
-        ckt_file_list = sim_para_model.circuitschematics_set.all()
+    def create_form_values(self, sim_para_model, ckt_file_list, branch_map):
+#        sim_para_model = models.SimulationCase.objects.get(id=sim_id)
+#        ckt_file_list = sim_para_model.circuitschematics_set.all()
         comp_found = False
         for ckt_file_item in ckt_file_list:
             try:
@@ -991,6 +1018,7 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
                     old_capacitor.comp_sheet = self.sheet
                     old_capacitor.save()
                     ckt_file_item.save()
+                    break
 
         if not comp_found:
             new_capacitor = models.Capacitor()
@@ -1049,7 +1077,6 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
                 comp_list = []
                 comp_list.append(["Component type", check_capacitor[0].comp_type])
                 comp_list.append(["Component name", check_capacitor[0].comp_tag])
-                comp_list.append(["Found in circuit schematic", check_capacitor[0].sheet_name])
                 comp_list.append(["Component position", check_capacitor[0].comp_pos])
                 comp_list.append(["Capacitor value", check_capacitor[0].comp_capacitor])
                 comp_list.append(["Positive polarity", check_capacitor[0].comp_polarity])
@@ -1069,6 +1096,63 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
             else:
                 comp_list = []
         return comp_list
+
+    def update_form_data(self, request, comp_model, branch_map):
+        received_form = models.CapacitorForm(request.POST)
+        if received_form.is_valid():
+            received_data = received_form.cleaned_data
+            comp_model.comp_capacitor = received_data["comp_capacitor"]
+            new_polarity = received_data["comp_polarity"]
+            comp_model.comp_polarity = new_polarity
+            new_polarity_3D = [comp_model.comp_sheet, ]
+            new_polarity_3D.extend(NwRdr.csv_tuple_2D(new_polarity))
+            current_pos = NwRdr.csv_tuple(comp_model.comp_pos_3D)
+            for c1 in range(len(branch_map)):
+                for c2 in range(c1+1, len(branch_map[c1])):
+                    for c3 in range(len(branch_map[c1][c2])):
+                        if current_pos in branch_map[c1][c2][c3]:
+                            if new_polarity_3D not in branch_map[c1][c2][c3]:
+                                received_form.add_error("comp_polarity", \
+                                    "Polarity has to be an element on same branch as capacitor.")
+                                form_status = [received_form, ]
+                            elif new_polarity_3D==current_pos:
+                                received_form.add_error("comp_polarity", \
+                                    "Polarity can't be the same element as the component.")
+                                form_status = [received_form, ]
+                            else:
+                                comp_model.comp_polarity_3D = NwRdr.csv_element(new_polarity_3D)
+                                comp_model.save()
+                                print("Capacitor")
+                                print(comp_model.comp_polarity)
+                                print(comp_model.comp_polarity_3D)
+                                form_status = []
+        else:
+            form_status = [received_form, ]
+        return form_status
+
+    def pre_run_check(self, ckt_file_item, branch_map):
+        comp_errors = []
+        try:
+            check_capacitor = ckt_file_item.capacitor_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            pass
+        else:
+            if check_capacitor and len(check_capacitor)==1:
+                comp_item = check_capacitor[0]
+                current_pos = NwRdr.csv_tuple(comp_item.comp_pos_3D)
+                current_polarity = NwRdr.csv_tuple(comp_item.comp_polarity_3D)
+                for c1 in range(len(branch_map)):
+                    for c2 in range(c1+1, len(branch_map[c1])):
+                        for c3 in range(len(branch_map[c1][c2])):
+                            if current_pos in branch_map[c1][c2][c3]:
+                                if current_polarity not in branch_map[c1][c2][c3]:
+                                    comp_errors.append("Polarity has to be an element on \
+                                        same branch as capacitor.")
+                                elif current_pos==current_polarity:
+                                    comp_errors.append("Polarity can't be the same element \
+                                        as the component.")
+        return comp_errors
 
 
 class Voltage_Source:
@@ -1270,9 +1354,9 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
     def determine_state(self, br_currents, sys_branches, sys_events):
         pass
 
-    def create_form_values(self, sim_id, branch_map):
-        sim_para_model = models.SimulationCase.objects.get(id=sim_id)
-        ckt_file_list = sim_para_model.circuitschematics_set.all()
+    def create_form_values(self, sim_para_model, ckt_file_list, branch_map):
+#        sim_para_model = models.SimulationCase.objects.get(id=sim_id)
+#        ckt_file_list = sim_para_model.circuitschematics_set.all()
         comp_found = False
         for ckt_file_item in ckt_file_list:
             try:
@@ -1290,6 +1374,7 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
                     old_voltagesource.comp_sheet = self.sheet
                     old_voltagesource.save()
                     ckt_file_item.save()
+                    break
 
         if not comp_found:
             new_voltagesource = models.Voltage_Source()
@@ -1351,7 +1436,6 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
                 comp_list = []
                 comp_list.append(["Component type", check_voltagesource[0].comp_type])
                 comp_list.append(["Component name", check_voltagesource[0].comp_tag])
-                comp_list.append(["Found in circuit schematic", check_voltagesource[0].sheet_name])
                 comp_list.append(["Component position", check_voltagesource[0].comp_pos])
                 comp_list.append(["Peak value", check_voltagesource[0].comp_volt_peak])
                 comp_list.append(["Frequency", check_voltagesource[0].comp_volt_freq])
@@ -1374,6 +1458,63 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
             else:
                 comp_list = []
         return comp_list
+
+    def update_form_data(self, request, comp_model, branch_map):
+        received_form = models.Voltage_SourceForm(request.POST)
+        if received_form.is_valid():
+            received_data = received_form.cleaned_data
+            comp_model.comp_volt_peak = received_data["comp_volt_peak"]
+            comp_model.comp_volt_freq = received_data["comp_volt_freq"]
+            comp_model.comp_volt_phase = received_data["comp_volt_phase"]
+            comp_model.comp_volt_offset = received_data["comp_volt_offset"]
+            new_polarity = received_data["comp_polarity"]
+            comp_model.comp_polarity = new_polarity
+            new_polarity_3D = [comp_model.comp_sheet, ]
+            new_polarity_3D.extend(NwRdr.csv_tuple_2D(new_polarity))
+            current_pos = NwRdr.csv_tuple(comp_model.comp_pos_3D)
+            for c1 in range(len(branch_map)):
+                for c2 in range(c1+1, len(branch_map[c1])):
+                    for c3 in range(len(branch_map[c1][c2])):
+                        if current_pos in branch_map[c1][c2][c3]:
+                            if new_polarity_3D not in branch_map[c1][c2][c3]:
+                                received_form.add_error("comp_polarity", \
+                                    "Polarity has to be an element on same branch as voltage source.")
+                                form_status = [received_form, ]
+                            elif current_pos==new_polarity_3D:
+                                received_form.add_error("comp_polarity", \
+                                    "Polarity can't be the same element as the component.")
+                                form_status = [received_form, ]
+                            else:
+                                comp_model.comp_polarity_3D = NwRdr.csv_element(new_polarity_3D)
+                                comp_model.save()
+                                form_status = []
+        else:
+            form_status = [received_form, ]
+        return form_status
+
+    def pre_run_check(self, ckt_file_item, branch_map):
+        comp_errors = []
+        try:
+            check_voltage_source = ckt_file_item.voltage_source_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            pass
+        else:
+            if check_voltage_source and len(check_voltage_source)==1:
+                comp_item = check_voltage_source[0]
+                current_pos = NwRdr.csv_tuple(comp_item.comp_pos_3D)
+                current_polarity = NwRdr.csv_tuple(comp_item.comp_polarity_3D)
+                for c1 in range(len(branch_map)):
+                    for c2 in range(c1+1, len(branch_map[c1])):
+                        for c3 in range(len(branch_map[c1][c2])):
+                            if current_pos in branch_map[c1][c2][c3]:
+                                if current_polarity not in branch_map[c1][c2][c3]:
+                                    comp_errors.append("Polarity has to be an element on \
+                                        same branch as voltage source.")
+                                elif current_pos==current_polarity:
+                                    comp_errors.append("Polarity can't be the same element \
+                                        as the component.")
+        return comp_errors
 
 
 class Ammeter:
@@ -1563,9 +1704,9 @@ Check ammeter at %s in sheet %s" %(self.pos, self.sheet_name)
     def determine_state(self, br_currents, sys_branches, sys_events):
         pass
 
-    def create_form_values(self, sim_id, branch_map):
-        sim_para_model = models.SimulationCase.objects.get(id=sim_id)
-        ckt_file_list = sim_para_model.circuitschematics_set.all()
+    def create_form_values(self, sim_para_model, ckt_file_list, branch_map):
+#        sim_para_model = models.SimulationCase.objects.get(id=sim_id)
+#        ckt_file_list = sim_para_model.circuitschematics_set.all()
         comp_found = False
         for ckt_file_item in ckt_file_list:
             try:
@@ -1583,6 +1724,7 @@ Check ammeter at %s in sheet %s" %(self.pos, self.sheet_name)
                     old_ammeter.comp_sheet = self.sheet
                     old_ammeter.save()
                     ckt_file_item.save()
+                    break
 
         if not comp_found:
             new_ammeter = models.Ammeter()
@@ -1640,7 +1782,6 @@ Check ammeter at %s in sheet %s" %(self.pos, self.sheet_name)
                 comp_list = []
                 comp_list.append(["Component type", check_ammeter[0].comp_type])
                 comp_list.append(["Component name", check_ammeter[0].comp_tag])
-                comp_list.append(["Found in circuit schematic", check_ammeter[0].sheet_name])
                 comp_list.append(["Component position", check_ammeter[0].comp_pos])
                 comp_list.append(["Positive direction of current", \
                         check_ammeter[0].comp_polarity])
@@ -1661,6 +1802,57 @@ Check ammeter at %s in sheet %s" %(self.pos, self.sheet_name)
                 comp_list = []
         return comp_list
 
+    def update_form_data(self, request, comp_model, branch_map):
+        received_form = models.AmmeterForm(request.POST)
+        if received_form.is_valid():
+            received_data = received_form.cleaned_data
+            new_polarity = received_data["comp_polarity"]
+            comp_model.comp_polarity = new_polarity
+            new_polarity_3D = [comp_model.comp_sheet, ]
+            new_polarity_3D.extend(NwRdr.csv_tuple_2D(new_polarity))
+            comp_model.comp_polarity_3D = NwRdr.csv_element(new_polarity_3D)
+            current_pos = NwRdr.csv_tuple(comp_model.comp_pos_3D)
+            for c1 in range(len(branch_map)):
+                for c2 in range(c1+1, len(branch_map[c1])):
+                    for c3 in range(len(branch_map[c1][c2])):
+                        if current_pos in branch_map[c1][c2][c3]:
+                            if new_polarity_3D not in branch_map[c1][c2][c3]:
+                                received_form.add_error("comp_polarity", \
+                                    "Polarity has to be an element on same branch as ammeter.")
+                                form_status = [received_form, ]
+                            elif current_pos==new_polarity_3D:
+                                received_form.add_error("comp_polarity", \
+                                    "Polarity can't be the same element as the component.")
+                                form_status = [received_form, ]
+                            else:
+                                comp_model.comp_polarity_3D = NwRdr.csv_element(new_polarity_3D)
+                                comp_model.save()
+                                form_status = []
+        return form_status
+
+    def pre_run_check(self, ckt_file_item, branch_map):
+        comp_errors = []
+        try:
+            check_ammeter = ckt_file_item.ammeter_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            pass
+        else:
+            if check_ammeter and len(check_ammeter)==1:
+                comp_item = check_ammeter[0]
+                current_pos = NwRdr.csv_tuple(comp_item.comp_pos_3D)
+                current_polarity = NwRdr.csv_tuple(comp_item.comp_polarity_3D)
+                for c1 in range(len(branch_map)):
+                    for c2 in range(c1+1, len(branch_map[c1])):
+                        for c3 in range(len(branch_map[c1][c2])):
+                            if current_pos in branch_map[c1][c2][c3]:
+                                if current_polarity not in branch_map[c1][c2][c3]:
+                                    comp_errors.append("Polarity has to be an element on \
+                                        same branch as ammeter.")
+                                elif current_pos==current_polarity:
+                                    comp_errors.append("Polarity can't be the same element \
+                                        as the component.")
+        return comp_errors
 
 class Voltmeter:
     """
@@ -1884,9 +2076,9 @@ Check voltmeter at %s in sheet %s" %(self.pos, self.sheet_name)
     def determine_state(self, br_currents, sys_branches, sys_events):
         pass
 
-    def create_form_values(self, sim_id, branch_map):
-        sim_para_model = models.SimulationCase.objects.get(id=sim_id)
-        ckt_file_list = sim_para_model.circuitschematics_set.all()
+    def create_form_values(self, sim_para_model, ckt_file_list, branch_map):
+#        sim_para_model = models.SimulationCase.objects.get(id=sim_id)
+#        ckt_file_list = sim_para_model.circuitschematics_set.all()
         comp_found = False
         for ckt_file_item in ckt_file_list:
             try:
@@ -1904,6 +2096,7 @@ Check voltmeter at %s in sheet %s" %(self.pos, self.sheet_name)
                     old_voltmeter.comp_sheet = self.sheet
                     old_voltmeter.save()
                     ckt_file_item.save()
+                    break
 
         if not comp_found:
             new_voltmeter = models.Voltmeter()
@@ -1962,7 +2155,6 @@ Check voltmeter at %s in sheet %s" %(self.pos, self.sheet_name)
                 comp_list = []
                 comp_list.append(["Component type", check_voltmeter[0].comp_type])
                 comp_list.append(["Component name", check_voltmeter[0].comp_tag])
-                comp_list.append(["Found in circuit schematic", check_voltmeter[0].sheet_name])
                 comp_list.append(["Component position", check_voltmeter[0].comp_pos])
                 comp_list.append(["Voltage level", check_voltmeter[0].comp_volt_level])
                 comp_list.append(["Positive direction of voltage", \
@@ -1983,6 +2175,61 @@ Check voltmeter at %s in sheet %s" %(self.pos, self.sheet_name)
             else:
                 comp_list = []
         return comp_list
+
+    def update_form_data(self, request, comp_model, branch_map):
+        received_form = models.VoltmeterForm(request.POST)
+        if received_form.is_valid():
+            received_data = received_form.cleaned_data
+            comp_model.comp_volt_level = received_data["comp_volt_level"]
+            new_polarity = received_data["comp_polarity"]
+            comp_model.comp_polarity = new_polarity
+            new_polarity_3D = [comp_model.comp_sheet, ]
+            new_polarity_3D.extend(NwRdr.csv_tuple_2D(new_polarity))
+            comp_model.comp_polarity_3D = NwRdr.csv_element(new_polarity_3D)
+            current_pos = NwRdr.csv_tuple(comp_model.comp_pos_3D)
+            for c1 in range(len(branch_map)):
+                for c2 in range(c1+1, len(branch_map[c1])):
+                    for c3 in range(len(branch_map[c1][c2])):
+                        if current_pos in branch_map[c1][c2][c3]:
+                            if new_polarity_3D not in branch_map[c1][c2][c3]:
+                                received_form.add_error("comp_polarity", \
+                                    "Polarity has to be an element on same branch as voltmeter.")
+                                form_status = [received_form, ]
+                            elif current_pos==new_polarity_3D:
+                                received_form.add_error("comp_polarity", \
+                                    "Polarity can't be the same element as the component.")
+                                form_status = [received_form, ]
+                            else:
+                                comp_model.comp_polarity_3D = NwRdr.csv_element(new_polarity_3D)
+                                comp_model.save()
+                                form_status = []
+        else:
+            form_status = [received_form, ]
+        return form_status
+
+    def pre_run_check(self, ckt_file_item, branch_map):
+        comp_errors = []
+        try:
+            check_voltmeter = ckt_file_item.voltmeter_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            pass
+        else:
+            if check_voltmeter and len(check_voltmeter)==1:
+                comp_item = check_voltmeter[0]
+                current_pos = NwRdr.csv_tuple(comp_item.comp_pos_3D)
+                current_polarity = NwRdr.csv_tuple(comp_item.comp_polarity_3D)
+                for c1 in range(len(branch_map)):
+                    for c2 in range(c1+1, len(branch_map[c1])):
+                        for c3 in range(len(branch_map[c1][c2])):
+                            if current_pos in branch_map[c1][c2][c3]:
+                                if current_polarity not in branch_map[c1][c2][c3]:
+                                    comp_errors.append("Polarity has to be an element on \
+                                        same branch as voltmeter.")
+                                elif current_pos==current_polarity:
+                                    comp_errors.append("Polarity can't be the same element \
+                                        as the component.")
+        return comp_errors
 
 
 class Current_Source:
@@ -2884,9 +3131,9 @@ Check diode at %s in sheet %s" %(self.pos, self.sheet_name)
 
         return
 
-    def create_form_values(self, sim_id, branch_map):
-        sim_para_model = models.SimulationCase.objects.get(id=sim_id)
-        ckt_file_list = sim_para_model.circuitschematics_set.all()
+    def create_form_values(self, sim_para_model, ckt_file_list, branch_map):
+#        sim_para_model = models.SimulationCase.objects.get(id=sim_id)
+#        ckt_file_list = sim_para_model.circuitschematics_set.all()
         comp_found = False
         for ckt_file_item in ckt_file_list:
             try:
@@ -2904,6 +3151,7 @@ Check diode at %s in sheet %s" %(self.pos, self.sheet_name)
                     old_diode.comp_sheet = self.sheet
                     old_diode.save()
                     ckt_file_item.save()
+                    break
 
         if not comp_found:
             new_diode = models.Diode()
@@ -2961,7 +3209,6 @@ Check diode at %s in sheet %s" %(self.pos, self.sheet_name)
                 comp_list = []
                 comp_list.append(["Component type", check_diode[0].comp_type])
                 comp_list.append(["Component name", check_diode[0].comp_tag])
-                comp_list.append(["Found in circuit schematic", check_diode[0].sheet_name])
                 comp_list.append(["Component position", check_diode[0].comp_pos])
                 comp_list.append(["Voltage level", check_diode[0].comp_volt_level])
                 comp_list.append(["Direction of cathode", \
@@ -2982,6 +3229,61 @@ Check diode at %s in sheet %s" %(self.pos, self.sheet_name)
             else:
                 comp_list = []
         return comp_list
+
+    def update_form_data(self, request, comp_model, branch_map):
+        received_form = models.DiodeForm(request.POST)
+        if received_form.is_valid():
+            received_data = received_form.cleaned_data
+            comp_model.comp_volt_level = received_data["comp_volt_level"]
+            new_polarity = received_data["comp_polarity"]
+            comp_model.comp_polarity = new_polarity
+            new_polarity_3D = [comp_model.comp_sheet, ]
+            new_polarity_3D.extend(NwRdr.csv_tuple_2D(new_polarity))
+            comp_model.comp_polarity_3D = NwRdr.csv_element(new_polarity_3D)
+            current_pos = NwRdr.csv_tuple(comp_model.comp_pos_3D)
+            for c1 in range(len(branch_map)):
+                for c2 in range(c1+1, len(branch_map[c1])):
+                    for c3 in range(len(branch_map[c1][c2])):
+                        if current_pos in branch_map[c1][c2][c3]:
+                            if new_polarity_3D not in branch_map[c1][c2][c3]:
+                                received_form.add_error("comp_polarity", \
+                                    "Polarity has to be an element on same branch as diode.")
+                                form_status = [received_form, ]
+                            elif current_pos==new_polarity_3D:
+                                received_form.add_error("comp_polarity", \
+                                    "Polarity can't be the same element as the component.")
+                                form_status = [received_form, ]
+                            else:
+                                comp_model.comp_polarity_3D = NwRdr.csv_element(new_polarity_3D)
+                                comp_model.save()
+                                form_status = []
+        else:
+            form_status = [received_form, ]
+        return form_status
+
+    def pre_run_check(self, ckt_file_item, branch_map):
+        comp_errors = []
+        try:
+            check_diode = ckt_file_item.diode_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            pass
+        else:
+            if check_diode and len(check_diode)==1:
+                comp_item = check_diode[0]
+                current_pos = NwRdr.csv_tuple(comp_item.comp_pos_3D)
+                current_polarity = NwRdr.csv_tuple(comp_item.comp_polarity_3D)
+                for c1 in range(len(branch_map)):
+                    for c2 in range(c1+1, len(branch_map[c1])):
+                        for c3 in range(len(branch_map[c1][c2])):
+                            if current_pos in branch_map[c1][c2][c3]:
+                                if current_polarity not in branch_map[c1][c2][c3]:
+                                    comp_errors.append("Polarity has to be an element on \
+                                        same branch as diode.")
+                                elif current_pos==current_polarity:
+                                    comp_errors.append("Polarity can't be the same element \
+                                        as the component.")
+        return comp_errors
 
 
 class Switch:

@@ -11,19 +11,32 @@
 	<br><br>
 	{% block main_body_content %}
 		<form action="" method="post">
-		{% for ckt_item in ckt_schematics_update %}
-			<table>
-			<tr style="padding:35px">
-			<td style="text-align:left; padding:25px">{{ forloop.counter }}</td>
-			<td>File name: {{ ckt_item.ckt_file_name }}<br>
-			File description: {{ ckt_item.ckt_file_descrip }} <br>
-			<input type="submit" name="edit_ckt_para_{{ ckt_item.id }}"
-			value="View components">
+		{% if ckt_error_list %}
+			<p>There are errors in the simulation circuit schematics.</p>
+			<ol>
+			{% for error_item in ckt_error_list %}
+				<li>{{ error_item }}</li>
+			{% endfor %}
+			</ol>
+			<br>
+			<p>You need to go back to the "Add circuit files" section and change the spreadsheets
+			that cause the errors.</p>
 			<br><br>
-			</td>
-			</tr>
-			</table>
-		{% endfor %}
+		{% else %}
+			{% for ckt_item in ckt_schematics_update %}
+				<table>
+				<tr style="padding:35px">
+				<td style="text-align:left; padding:25px">{{ forloop.counter }}</td>
+				<td>File name: {{ ckt_item.ckt_file_name }}<br>
+				File description: {{ ckt_item.ckt_file_descrip }} <br>
+				<input type="submit" name="edit_ckt_para_{{ ckt_item.id }}"
+				value="View components">
+				<br><br>
+				</td>
+				</tr>
+				</table>
+			{% endfor %}
+		{% endif %}
 		
 		<input type="submit" name="main_page" value="Back to main page">
 

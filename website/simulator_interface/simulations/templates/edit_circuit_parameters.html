@@ -16,13 +16,28 @@
 			<tr style="padding:35px">
 			<td style="text-align:left; padding:25px">{{ forloop.counter }}</td>
 			<td>
-			{% if ckt_item.0 %}
+
+			{% if ckt_item.3 %}
 				{% for comp_spec in ckt_item.0 %}
 					{{ comp_spec.0 }}: {{ comp_spec.1 }} <br>
 				{% endfor %}
+				<input type="submit" name="edit_comp_para_{{ ckt_item.1.comp_pos_3D }}"
+				value="Edit parameters">
+			{% else %}
+				{% for comp_spec in ckt_item.0 %}
+					{{ comp_spec.0 }}: {{ comp_spec.1 }} <br>
+				{% endfor %}
+				{% for comp_form_item in ckt_item.2 %}
+					{{ comp_form_item.label }}: {{ comp_form_item }}
+					{% for form_item_errors in comp_form_item.errors %}
+						<font color="red"> {{ form_item_errors }} </font>
+					{% endfor %}
+					<br>
+				{% endfor %}
+				<input type="submit" name="submit_comp_para_{{ ckt_item.1.comp_pos_3D }}"
+				value="Save parameters">
 			{% endif %}
-			<input type="submit" name="edit_comp_para_{{ ckt_item.1.id }}"
-			value="Edit parameters">
+
 			<br><br>
 			</td>
 			</tr>

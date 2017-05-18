@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+
+{% extends "base_framework.html" %}
+
+<head>
+	<title>
+	</title>
+</head>
+
+<body>
+	<br><br>
+	{% block main_body_content %}
+		<form action="" method="post">
+		{% if ckt_error_list %}
+			<p>The following errors have been found in the simulation. Go back to the previous 
+			page and click on the "Edit Simulation", "Add circuits" and "Edit parameters" buttons
+			to make corrections.
+			</p>
+			<ol>
+			{% for ckt_error_item in ckt_error_list %}
+				<li>{{ ckt_error_item }}</li>
+			{% endfor %}
+			</ol>
+		{% else %}
+			<p>All ok</p>
+		{% endif %}
+
+		<br><br>
+		<input type="submit" name="main_page" value="Back to main page">
+
+		<input type="hidden" name="sim_id" value="{{ sim_id }}">
+		<input type="hidden" name="sim_state" value="{{ sim_state }}">
+		{% csrf_token %}
+		</form>
+	{% endblock %}
+</body>

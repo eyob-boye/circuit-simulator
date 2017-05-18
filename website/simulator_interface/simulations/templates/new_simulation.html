@@ -56,6 +56,16 @@
 			button if any change	is made in the circuits.</p>
 		{% endif %}
 
+		{% if sim_state >= 4 %}
+			<input type="submit" name="view_output" value="View output"> <br>
+			<p>Click above to run the simulation and view output plots.</p>
+		{% endif %}
+
+		{% if sim_state == 4 %}
+			<p>Clicking the above button will take you to the page where the simulation can
+			be executed and output plots can be configured and viewed.</p>
+		{% endif %}
+
 		<input type="hidden" name="sim_id" value="{{ sim_id }}">
 		<input type="hidden" name="sim_state" value="{{ sim_state }}">
 		{% csrf_token %}

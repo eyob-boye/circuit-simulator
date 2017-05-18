@@ -141,6 +141,13 @@ class ResistorForm(ModelForm):
         model = Resistor
         fields = ('comp_resistor', )
 
+    def clean_comp_resistor(self):
+        checkres = self.cleaned_data["comp_resistor"]
+        if checkres<0.0:
+            raise forms.ValidationError("Resistor has to be a positive number.")
+        
+        return checkres
+
 
 class Inductor(models.Model):
     comp_type = models.CharField(max_length=100, default="Inductor", \
@@ -172,6 +179,12 @@ class InductorForm(ModelForm):
     class Meta:
         model = Inductor
         fields = ('comp_inductor', )
+
+    def clean_comp_inductor(self):
+        checkind = self.cleaned_data["comp_inductor"]
+        if checkind<0.0:
+            raise forms.ValidationError("Inductor has to be a positive number.")
+        return checkind
 
 
 class Capacitor(models.Model):
@@ -210,6 +223,12 @@ class CapacitorForm(ModelForm):
         model = Capacitor
         fields = ('comp_capacitor', \
                 'comp_polarity')
+
+    def clean_comp_capacitor(self):
+        checkcap = self.cleaned_data["comp_capacitor"]
+        if checkcap<0.0:
+            raise forms.ValidationError("Capcitor has to be a positive number.")
+        return checkcap
 
 
 class Voltage_Source(models.Model):
@@ -255,6 +274,18 @@ class Voltage_SourceForm(ModelForm):
                 'comp_volt_phase', \
                 'comp_volt_offset', \
                 'comp_polarity')
+
+    def clean_comp_volt_peak(self):
+        checkcomp_volt_peak = self.cleaned_data["comp_volt_peak"]
+        if checkcomp_volt_peak<0.0:
+            raise forms.ValidationError("Peak voltage has to be a positive number.")
+        return checkcomp_volt_peak
+
+    def clean_comp_volt_freq(self):
+        checkcomp_volt_freq = self.cleaned_data["comp_volt_freq"]
+        if checkcomp_volt_freq<0.0:
+            raise forms.ValidationError("Frequency has to be a positive number.")
+        return checkcomp_volt_freq
 
 
 class Ammeter(models.Model):
@@ -330,6 +361,12 @@ class VoltmeterForm(ModelForm):
         fields = ('comp_volt_level', \
                 'comp_polarity')
 
+    def clean_comp_volt_level(self):
+        checkcomp_volt_level = self.cleaned_data["comp_volt_level"]
+        if checkcomp_volt_level<0.0:
+            raise forms.ValidationError("Voltage level has to be a positive number.")
+        return checkcomp_volt_level
+
 
 class Diode(models.Model):
     comp_type = models.CharField(max_length=100, default="Diode", \
@@ -369,5 +406,9 @@ class DiodeForm(ModelForm):
         fields = ('comp_volt_level', \
                 'comp_polarity')
 
-
+    def clean_comp_volt_level(self):
+        checkcomp_volt_level = self.cleaned_data["comp_volt_level"]
+        if checkcomp_volt_level<0.0:
+            raise forms.ValidationError("Voltage level has to be a positive number.")
+        return checkcomp_volt_level
 

@@ -91,8 +91,10 @@
 				{% endfor %}
 			</ol>
 		{% else %}
-			<p>The circuits do not have any detectable errors. You can continue to enter the parameters by clicking on the
-			"Back to main page" button.</p>
+			{% if ckt_errors == 0 %}
+				<p>The circuits do not have any detectable errors. You can continue to enter the 
+				parameters by clicking on the "Back to main page" button.</p>
+			{% endif %}
 		{% endif %}
 		{% csrf_token %}
 		</form>

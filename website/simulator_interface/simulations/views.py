@@ -90,7 +90,7 @@ def save_simulation_parameters(request):
 def check_circuit_errors(sim_para_model):
     ckt_file_list = sim_para_model.circuitschematics_set.all()
     ckt_schematic_form = []
-    ckt_errors = 0
+    ckt_errors = -1
     # List the existing circuits.
     for ckt_file_item in ckt_file_list:
         ckt_item_dict = model_to_dict(ckt_file_item)
@@ -179,13 +179,24 @@ def save_circuit_schematic(request):
         else:
             if len(received_ckt_file_name.split("."))>1 and \
                     received_ckt_file_name.split(".")[-1]=="csv":
-                ckt_file.ckt_file_name = received_ckt_file_name
-                if u'ckt_file_descrip' in request.POST:
-                    ckt_file.ckt_file_descrip = request.POST.getlist(u'ckt_file_descrip')[0]
-                ckt_file.ckt_sim_case = sim_para_model
-                ckt_file.save()
-                sim_para_model.save()
-                ckt_schematic_form.append([ckt_file, CircuitSchematicsForm(instance=ckt_file)])
+                repeated_circuit = False
+                for other_ckt_files in sim_para_model.circuitschematics_set.all():
+                    if received_ckt_file_name==other_ckt_files.ckt_file_name:
+                        repeated_circuit = True
+                if repeated_circuit:
+                    ckt_form = CircuitSchematicsForm(request.POST)
+                    ckt_form.add_error('ckt_file_descrip', \
+                                    'Circuit schematic has already been added.')
+                    ckt_schematic_form.append([[], ckt_form])
+                    ckt_errors = 1
+                else:
+                    ckt_file.ckt_file_name = received_ckt_file_name
+                    if u'ckt_file_descrip' in request.POST:
+                        ckt_file.ckt_file_descrip = request.POST.getlist(u'ckt_file_descrip')[0]
+                    ckt_file.ckt_sim_case = sim_para_model
+                    ckt_file.save()
+                    sim_para_model.save()
+                    ckt_schematic_form.append([ckt_file, CircuitSchematicsForm(instance=ckt_file)])
             else:
                 ckt_form = CircuitSchematicsForm(request.POST)
                 ckt_form.add_error('ckt_file_descrip', \
@@ -393,10 +404,10 @@ def new_simulation(request):
                 'simulation_form' : simulation_form})
 
     else:
-
         if "save_ckt_schematic" in request.POST and \
                 request.POST["save_ckt_schematic"]=="Save circuit file":
             sim_id, sim_state, ckt_schematic_form, ckt_errors = save_circuit_schematic(request)
+            ckt_error_list = []
             if sim_state==1:
                 sim_state = 2
             return render(request,
@@ -404,12 +415,14 @@ def new_simulation(request):
                 {'sim_id' : sim_id,
                 'sim_state' : sim_state,
                 'ckt_schematic_form' : ckt_schematic_form,
-                'ckt_errors' : ckt_errors})
+                'ckt_errors' : ckt_errors,
+                'ckt_error_list' : ckt_error_list})
             
 
         elif "add_ckt_schematic" in request.POST and \
                 request.POST["add_ckt_schematic"]=="Add circuit file":
             sim_id, sim_state, ckt_schematic_form, ckt_errors = add_circuit_schematic(request)
+            ckt_error_list = []
             if sim_state==1:
                 sim_state = 2
             return render(request,
@@ -417,7 +430,8 @@ def new_simulation(request):
                 {'sim_id' : sim_id,
                 'sim_state' : sim_state,
                 'ckt_schematic_form' : ckt_schematic_form,
-                'ckt_errors' : ckt_errors})
+                'ckt_errors' : ckt_errors,
+                'ckt_error_list' : ckt_error_list})
 
         elif "save_sim_param" in request.POST and \
                 request.POST["save_sim_param"]=="Save Simulation Parameters":
@@ -498,12 +512,16 @@ def new_simulation(request):
 
             if not ckt_error_list:
                 sim_state = 3
+                ckt_errors = 0
+            else:
+                ckt_errors = 1
 
             return render(request,
                 "edit_circuit_schematic.html",
                 {'sim_id' : sim_id,
                 'sim_state' : sim_state,
                 'ckt_schematic_form' : ckt_schematic_form,
+                'ckt_errors' : ckt_errors,
                 'ckt_error_list' : ckt_error_list})
 
         elif "edit_ckt_parameters" in request.POST and \
@@ -521,13 +539,16 @@ def new_simulation(request):
 
             all_ckt_component_list = []
             if not ckt_error_list:
+                ckt_file_list = sim_para_model.circuitschematics_set.all()
                 branch_map = circuit_analysis_components[1]
                 for comp_items in component_objects.keys():
-                    component_objects[comp_items].create_form_values(sim_id, branch_map)
-                
-                ckt_file_list = sim_para_model.circuitschematics_set.all()
+                    component_objects[comp_items].\
+                            create_form_values(sim_para_model, ckt_file_list, branch_map)
+
                 for ckt_file_item in ckt_file_list:
                     all_ckt_component_list.append(ckt_file_item)
+
+            sim_state = 4
 
             return render(request,
                 "main_circuit_components.html",
@@ -535,7 +556,70 @@ def new_simulation(request):
                 'sim_state' : sim_state,
                 'ckt_schematics_update' : all_ckt_component_list,
                 'ckt_error_list' : ckt_error_list})
+
+        elif "view_output" in request.POST and request.POST["view_output"]=="View output":
+            if "sim_id" in request.POST:
+                sim_id = int(request.POST["sim_id"])
+            if "sim_state" in request.POST:
+                sim_state = int(request.POST["sim_state"])
             
+            ckt_error_list = []
+            circuit_analysis_components = []
+            if sim_id>0:
+                sim_para_model = SimulationCase.objects.get(id=sim_id)
+                ckt_file_list = sim_para_model.circuitschematics_set.all()
+                nw_input = []
+                conn_ckt_mat = []
+                for ckt_file_item in ckt_file_list:
+                    ckt_full_path = os.path.join(os.sep, \
+                                    sim_para_model.sim_working_directory, \
+                                    ckt_file_item.ckt_file_name)
+
+                    # Try to read the file.
+                    try:
+                        ckt_file_object = open(ckt_full_path, "r")
+                    except:
+                        ckt_error_list.append("Circuit schematic spreadsheet"+\
+                            ckt_file_item.ckt_file_name+"cannot be read.")
+                    else:
+                        nw_input.append(ckt_file_item.ckt_file_name.split(".csv")[0])
+                        # Read the circuit into conn_ckt_mat
+                        # Also performs a scrubbing of circuit spreadsheet
+                        conn_ckt_mat.append(NwRdr.csv_reader(ckt_file_object))
+
+
+                if not ckt_error_list:
+                    # Making a list of the type of components in the 
+                    # circuit.
+                    components_found, component_objects, network_error_list = \
+                            NwRdr.determine_circuit_components(conn_ckt_mat, nw_input)
+
+                    ckt_error_list.extend(network_error_list)
+
+                if not ckt_error_list:
+                    # Make lists of nodes and branches in the circuit.
+                    node_list, branch_map, node_branch_errors = \
+                                NwRdr.determine_nodes_branches(conn_ckt_mat, nw_input)
+
+                    if node_branch_errors:
+                        ckt_error_list.extend(node_branch_errors)
+                    else:
+                        circuit_analysis_components.append(node_list)
+                        circuit_analysis_components.append(branch_map)
+
+                if not ckt_error_list:
+                    for comp_keys in component_objects.keys():
+                        comp_error = component_objects[comp_keys].\
+                            pre_run_check(ckt_file_item, circuit_analysis_components[1])
+                        if comp_error:
+                            ckt_error_list.extend(comp_error)
+
+                return render(request,
+                    "output_interface.html",
+                    {'sim_id' : sim_id,
+                    'sim_state' : sim_state,
+                    'ckt_error_list' : ckt_error_list})
+
         else:
             if "sim_state" in request.POST:
                 sim_state = int(request.POST["sim_state"])
@@ -547,10 +631,10 @@ def new_simulation(request):
                     ckt_ids_for_removal = []
                     for ckt_file_item in ckt_file_list:
                         ckt_ids_for_removal.append("change_ckt_id"+"_"+str(ckt_file_item.id))
+
                     if ckt_ids_for_removal:
                         for ckt_ids in ckt_ids_for_removal:
                             if ckt_ids in request.POST and request.POST[ckt_ids]=="Remove circuit":
-
                                 for ckt_item_id in ckt_ids_for_removal:
                                     if ckt_item_id in request.POST:
                                         del_ckt_id = int(ckt_item_id.split("_")[-1])
@@ -574,8 +658,11 @@ def new_simulation(request):
                                     "edit_circuit_schematic.html",
                                     {'sim_id' : sim_id,
                                     'sim_state' : sim_state,
-                                    'ckt_schematic_form' : ckt_schematic_form,
-                                    'ckt_errors' : ckt_errors})
+                                    'ckt_schematic_form' : ckt_schematic_form})
+
+                    components_found, component_objects, \
+                            circuit_analysis_components, ckt_error_list = \
+                            generate_component_data(sim_para_model)
 
                     ckts_for_para_update = []
                     for ckt_file_item in ckt_file_list:
@@ -586,9 +673,6 @@ def new_simulation(request):
                                 ckt_component_list = []
                                 recd_ckt_id = int(ckt_ids.split("_")[-1])
                                 recd_ckt_item = CircuitSchematics.objects.get(id=recd_ckt_id)
-                                components_found, component_objects, \
-                                        circuit_analysis_components, ckt_error_list = \
-                                        generate_component_data(sim_para_model)
                                 if not ckt_error_list:
                                     branch_map = circuit_analysis_components[1]
                                     for comp_items in component_objects.keys():
@@ -603,7 +687,109 @@ def new_simulation(request):
                                             comp_form_data.append(comp_info)
                                             comp_form_data.append(comp_model)
                                             comp_form_data.append(comp_form)
-                                            comp_form_data.append(0)
+                                            comp_form_data.append(1)
+                                            ckt_component_list.append(comp_form_data)
+
+                                return render(request,
+                                    "edit_circuit_parameters.html",
+                                    {'sim_id' : sim_id,
+                                    'sim_state' : sim_state,
+                                    'ckt_component_list' : ckt_component_list,
+                                    'ckt_errors' : ckt_error_list})
+
+                    comps_para_update = []
+                    for ckt_file_item in ckt_file_list:
+                        for comp_items in component_objects.keys():
+                            comp_model = component_objects[comp_items].\
+                                    list_existing_components(ckt_file_item)
+                            if comp_model:
+                                comps_para_update.\
+                                        append("edit_comp_para"+"_"+str(comp_model.comp_pos_3D))
+
+                    if comps_para_update:
+                        for comp_ids in comps_para_update:
+                            if comp_ids in request.POST and request.POST[comp_ids]=="Edit parameters":
+                                recd_comp_pos3D = comp_ids.split("_")[-1]
+                                for ckt_file_item in ckt_file_list:
+                                    recd_comp_item = component_objects[recd_comp_pos3D].\
+                                                list_existing_components(ckt_file_item)
+                                    if recd_comp_item:
+                                        break
+
+                                recd_ckt_item = recd_comp_item.comp_ckt
+                                ckt_component_list = []
+                                if not ckt_error_list:
+                                    branch_map = circuit_analysis_components[1]
+                                    for comp_items in component_objects.keys():
+                                        comp_form_data = []
+                                        comp_info = component_objects[comp_items].\
+                                                comp_as_a_dict(recd_ckt_item)
+                                        comp_model = component_objects[comp_items].\
+                                                list_existing_components(recd_ckt_item)
+                                        comp_form = component_objects[comp_items].\
+                                                comp_as_a_form(recd_ckt_item)
+                                        if comp_info:
+                                            comp_form_data.append(comp_info)
+                                            comp_form_data.append(comp_model)
+                                            comp_form_data.append(comp_form)
+                                            if comp_model==recd_comp_item:
+                                                comp_form_data.append(0)
+                                            else:
+                                                comp_form_data.append(1)
+                                            ckt_component_list.append(comp_form_data)
+
+                                return render(request,
+                                    "edit_circuit_parameters.html",
+                                    {'sim_id' : sim_id,
+                                    'sim_state' : sim_state,
+                                    'ckt_component_list' : ckt_component_list,
+                                    'ckt_errors' : ckt_error_list})
+                    
+                    comps_para_submit = []
+                    for ckt_file_item in ckt_file_list:
+                        for comp_items in component_objects.keys():
+                            comp_model = component_objects[comp_items].\
+                                    list_existing_components(ckt_file_item)
+                            if comp_model:
+                                comps_para_submit.\
+                                        append("submit_comp_para"+"_"+str(comp_model.comp_pos_3D))
+
+                    if comps_para_submit:
+                        for comp_ids in comps_para_submit:
+                            if comp_ids in request.POST and request.POST[comp_ids]=="Save parameters":
+                                recd_comp_pos3D = comp_ids.split("_")[-1]
+                                for ckt_file_item in ckt_file_list:
+                                    recd_comp_item = component_objects[recd_comp_pos3D].\
+                                                list_existing_components(ckt_file_item)
+                                    if recd_comp_item:
+                                        form_status = component_objects[recd_comp_pos3D].\
+                                                update_form_data(request, recd_comp_item, \
+                                                circuit_analysis_components[1])
+                                        ckt_file_item.save()
+                                        sim_para_model.save()
+                                        break
+
+                                recd_ckt_item = recd_comp_item.comp_ckt
+                                ckt_component_list = []
+                                if not ckt_error_list:
+                                    branch_map = circuit_analysis_components[1]
+                                    for comp_items in component_objects.keys():
+                                        comp_form_data = []
+                                        comp_info = component_objects[comp_items].\
+                                                comp_as_a_dict(recd_ckt_item)
+                                        comp_model = component_objects[comp_items].\
+                                                list_existing_components(recd_ckt_item)
+                                        comp_form = component_objects[comp_items].\
+                                                comp_as_a_form(recd_ckt_item)
+                                        if comp_info:
+                                            comp_form_data.append(comp_info)
+                                            comp_form_data.append(comp_model)
+                                            if comp_model==recd_comp_item and form_status:
+                                                comp_form_data.append(form_status[0])
+                                                comp_form_data.append(0)
+                                            else:
+                                                comp_form_data.append(comp_form)
+                                                comp_form_data.append(1)
                                             ckt_component_list.append(comp_form_data)
 
                                 return render(request,
