@@ -47,6 +47,19 @@ class SimulationCaseForm(ModelForm):
             'sim_working_directory': forms.TextInput(attrs={'size': 80}),
             }
 
+
+    def clean_sim_time_step(self):
+        sim_time_step = float(self.cleaned_data["sim_time_step"])
+        if sim_time_step<=0.0:
+            raise forms.ValidationError("Simulation time step must be greater than 0.0")
+        return sim_time_step
+
+    def clean_sim_time_data(self):
+        sim_time_data = float(self.cleaned_data["sim_time_data"])
+        if sim_time_data<=0.0:
+            raise forms.ValidationError("Data storage rate must be greater than 0.0")
+        return sim_time_data
+
     def clean_sim_time_limit(self):
         sim_time_limit = float(self.cleaned_data["sim_time_limit"])
         if sim_time_limit<=0.0:
@@ -68,15 +81,17 @@ class SimulationCaseForm(ModelForm):
 
     def clean(self):
         cleaned_data = super(SimulationCaseForm, self).clean()
-        sim_time_step = float(cleaned_data.get('sim_time_step'))
-        sim_time_data = float(cleaned_data.get('sim_time_data'))
-        if sim_time_data<sim_time_step:
-            self.add_error('sim_time_data', 'This number must be greater than or equal to Integration Time Step (previous)')
-        
-        sim_output_slice = cleaned_data.get('sim_output_slice')
-        sim_div_number = cleaned_data.get('sim_div_number')
-        if sim_output_slice=="Yes" and sim_div_number<2:
-            self.add_error('sim_div_number', 'If the output file slicing option is chosen, the Number of Slices must be at least 2')
+        if 'sim_time_step' in cleaned_data and 'sim_time_data' in cleaned_data:
+            sim_time_step = float(cleaned_data.get('sim_time_step'))
+            sim_time_data = float(cleaned_data.get('sim_time_data'))
+
+            if sim_time_data<sim_time_step:
+                self.add_error('sim_time_data', 'This number must be greater than or equal to Integration Time Step (previous)')
+            
+            sim_output_slice = cleaned_data.get('sim_output_slice')
+            sim_div_number = cleaned_data.get('sim_div_number')
+            if sim_output_slice=="Yes" and sim_div_number<2:
+                self.add_error('sim_div_number', 'If the output file slicing option is chosen, the Number of Slices must be at least 2')
 
 
 class CircuitSchematics(models.Model):

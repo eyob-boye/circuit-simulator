@@ -6,6 +6,318 @@ import models
 import os
 import network_reader as NwRdr
 import circuit_elements as CktElem
+import matrix
+import threading
+
+
+def prepare_simulation_objects(sim_components, ckt_topo, conn_ckt_mat):
+    
+    synthesized_ckt_comps = {}
+    
+    components_found = sim_components[0]
+    component_objects = sim_components[1]
+
+    node_list = ckt_topo[0]
+    branch_map = ckt_topo[1]
+
+    # Segregating the elements in the circuit as those
+    # having source voltages, meters and those that can be
+    # controlled.
+    bundled_list_of_elements = NwRdr.classify_components(components_found, component_objects)
+    
+    source_list = bundled_list_of_elements[0]
+    meter_list = bundled_list_of_elements[1]
+    controlled_elements = bundled_list_of_elements[2]
+    
+    synthesized_ckt_comps["source_list"] = source_list
+    synthesized_ckt_comps["meter_list"] = meter_list
+    synthesized_ckt_comps["controlled_elements"] = controlled_elements
+
+    # Make a list of all the loops in the circuit.
+    loop_list, loop_branches = NwRdr.determine_loops(conn_ckt_mat, node_list, branch_map)
+
+    synthesized_ckt_comps["loop_list"] = loop_list
+    synthesized_ckt_comps["loop_branches"] = loop_branches
+
+    # Convert the above list of loops as segments of branches
+    # while branch_params lists out the branch segments with
+    # their parameters as the last element
+    system_loops, branch_params = NwRdr.update_branches_loops(loop_branches, source_list)
+
+    synthesized_ckt_comps["system_loops"] = system_loops
+    synthesized_ckt_comps["branch_params"] = branch_params
+
+    # Make lists of all the nodes connected together by 
+    # empty branches.
+    shortnode_list, shortbranch_list = NwRdr.delete_empty_branches(system_loops, \
+                    branch_params, node_list, component_objects)
+
+    synthesized_ckt_comps["shortnode_list"] = shortnode_list
+    synthesized_ckt_comps["shortbranch_list"] = shortbranch_list
+
+    # Make a list which has the components of a branch
+    # as every element of the list.
+    components_in_branch = []
+    for c1 in range(len(branch_params)):
+        current_branch_vector = []
+        for c2 in range(len(branch_params[c1][:-1])):
+            try:
+                comp_pos = NwRdr.csv_element(branch_params[c1][c2])
+                component_objects[comp_pos]
+            except:
+                pass
+            else:
+                current_branch_vector.append(comp_pos)
+        components_in_branch.append(current_branch_vector)
+
+    synthesized_ckt_comps["components_in_branch"] = components_in_branch
+
+    # Branch currents for nodal analysis
+    branch_currents = []
+    for c1 in range(len(branch_params)):
+        branch_currents.append(0.0)
+
+    synthesized_ckt_comps["branch_currents"] = branch_currents
+
+    # This is a list of branches which are only
+    # in stiff loops. This comes in handy to recalculate
+    # currents through branches that have recently become
+    # stiff.
+    branches_in_stiff_loops = []
+    for c1 in range(len(branch_params)):
+        branches_in_stiff_loops.append("yes")
+
+    synthesized_ckt_comps["branches_in_stiff_loops"] = branches_in_stiff_loops
+
+    # Stiff ratio indicates whether a branch
+    # is stiff.
+    stiff_ratio = []
+    for c1 in range(len(branch_params)):
+        stiff_ratio.append("no")
+
+    synthesized_ckt_comps["stiff_ratio"] = stiff_ratio
+
+    # An event vector which corresponds to every branch
+    # in the circuit. An event is generated if any element
+    # in the branch changes. Intitally, an event is generated
+    # for each branch in the circuit.
+    branch_events = []
+    for c1 in range(len(branch_params)):
+        branch_events.append("yes")
+
+    synthesized_ckt_comps["branch_events"] = branch_events
+
+    # Saving the previous set of branch events
+    # to look for device state changes.
+    branch_events_prev = []
+    for c1 in range(len(branch_params)):
+        branch_events_prev.append("no")
+
+    synthesized_ckt_comps["branch_events_prev"] = branch_events_prev
+
+    # Mark which loops are stiff.
+    loop_stiff_info = []
+    for c1 in range(len(system_loops)):
+        loop_stiff_info.append("no")
+
+    synthesized_ckt_comps["loop_stiff_info"] = loop_stiff_info
+
+    # Node voltages for nodal analysis
+    node_voltage = []
+    for c1 in range(len(node_list)):
+        node_voltage.append(0.0)
+
+    synthesized_ckt_comps["node_voltage"] = node_voltage
+
+    # Collect branches into bundles - those with
+    # inductances, those with nonlinear elements,
+    # those with voltage sources.
+    bundled_list_of_branches = NwRdr.classify_branches(branch_params, component_objects)
+
+    nonlinear_freewheel_branches = bundled_list_of_branches[0]
+    inductor_list = bundled_list_of_branches[1][0]
+    inductor_stiffness = bundled_list_of_branches[1][1]
+    voltmeter_branches = bundled_list_of_branches[2][0]
+    voltmeter_voltages = bundled_list_of_branches[2][1]
+
+    synthesized_ckt_comps["nonlinear_freewheel_branches"] = nonlinear_freewheel_branches
+    synthesized_ckt_comps["inductor_list"] = inductor_list
+    synthesized_ckt_comps["inductor_stiffness"] = inductor_stiffness
+    synthesized_ckt_comps["voltmeter_branches"] = voltmeter_branches
+    synthesized_ckt_comps["voltmeter_voltages"] = voltmeter_voltages
+
+    # For debugging, lists out a branch as a collection of 
+    # the elements in the branch.
+    branch_tags_in_loops = NwRdr.human_branch_names(branch_params, component_objects)
+
+    synthesized_ckt_comps["branch_tags_in_loops"] = branch_tags_in_loops
+
+    # These are lists needed to perform the KCL. Contains 
+    # all the branches connected at a branch
+    kcl_node_list,  abridged_node_voltage,  kcl_branch_map,  \
+            branches_in_kcl_nodes,  admittance_matrix,  source_vector = \
+            NwRdr.determine_kcl_parameters(branch_params,  node_list,  shortnode_list)
+
+    synthesized_ckt_comps["kcl_node_list"] = kcl_node_list
+    synthesized_ckt_comps["abridged_node_voltage"] = abridged_node_voltage
+    synthesized_ckt_comps["kcl_branch_map"] = kcl_branch_map
+    synthesized_ckt_comps["branches_in_kcl_nodes"] = branches_in_kcl_nodes
+    synthesized_ckt_comps["admittance_matrix"] = admittance_matrix
+    synthesized_ckt_comps["source_vector"] = source_vector
+    
+    # These are dictionaries to take snapshops of the system
+    # at every event. The system loop map, and loop current
+    # calculation information is stored when a new event is
+    # detected and is retrieved when the event repeats.
+    snap_branch_stiffness = {}
+    snap_system_loopmap = {}
+    snap_nonstiff_loops = {}
+    snap_single_collection_nonstiff = {}
+    snap_compute_loops_nonstiff = {}
+    snap_loop_map_collection_nonstiff = {}
+    snap_single_collection_stiff = {}
+    snap_compute_loops_stiff = {}
+    snap_loop_map_collection_stiff = {}
+
+    synthesized_ckt_comps["snap_branch_stiffness"] = snap_branch_stiffness
+    synthesized_ckt_comps["snap_system_loopmap"] = snap_system_loopmap
+    synthesized_ckt_comps["snap_nonstiff_loops"] = snap_nonstiff_loops
+    synthesized_ckt_comps["snap_single_collection_nonstiff"] = snap_single_collection_nonstiff
+    synthesized_ckt_comps["snap_compute_loops_nonstiff"] = snap_compute_loops_nonstiff
+    synthesized_ckt_comps["snap_loop_map_collection_nonstiff"] = snap_loop_map_collection_nonstiff
+    synthesized_ckt_comps["snap_single_collection_stiff"] = snap_single_collection_stiff
+    synthesized_ckt_comps["snap_compute_loops_stiff"] = snap_compute_loops_stiff
+    synthesized_ckt_comps["snap_loop_map_collection_stiff"] = snap_loop_map_collection_stiff
+
+    # Initialize the system loop map.
+    system_loop_map = []
+    synthesized_ckt_comps["system_loop_map"] = system_loop_map
+
+    # System matrices for the ODE
+    system_size = len(loop_branches)
+    synthesized_ckt_comps["system_size"] = system_size
+
+    sys_mat_a = matrix.Matrix(system_size, system_size)
+    sys_mat_e = matrix.Matrix(system_size, system_size)
+    curr_state_vec = matrix.Matrix(system_size)
+    next_state_vec = matrix.Matrix(system_size)
+
+    synthesized_ckt_comps["sys_mat_a"] = sys_mat_a
+    synthesized_ckt_comps["sys_mat_e"] = sys_mat_e
+    synthesized_ckt_comps["curr_state_vec"] = curr_state_vec
+    synthesized_ckt_comps["next_state_vec"] = next_state_vec
+
+    # These vectors are for the reduced order KVL
+    reduced_curr_state = matrix.Matrix(system_size)
+    reduced_next_state = matrix.Matrix(system_size)
+
+    synthesized_ckt_comps["reduced_curr_state"] = reduced_curr_state
+    synthesized_ckt_comps["reduced_next_state"] = reduced_next_state
+
+    if source_list:
+        source_size = len(source_list)
+        sys_mat_b = matrix.Matrix(system_size, len(source_list))
+        sys_mat_u = matrix.Matrix(len(source_list))
+
+    else:
+        source_size = 1
+        sys_mat_b = matrix.Matrix(system_size)
+        sys_mat_u = 0.0
+
+    synthesized_ckt_comps["source_size"] = source_size
+    synthesized_ckt_comps["sys_mat_b"] = sys_mat_b
+    synthesized_ckt_comps["sys_mat_u"] = sys_mat_u
+
+    # 5th order Runge Kutta method
+    ##ode_k1=matrix.Matrix(system_size)
+    ##ode_k2=matrix.Matrix(system_size)
+    ##ode_k3=matrix.Matrix(system_size)
+    ##ode_k4=matrix.Matrix(system_size)
+    ##ode_k5=matrix.Matrix(system_size)
+    ##ode_k6=matrix.Matrix(system_size)
+    ##ode_dbydt=matrix.Matrix(system_size)
+    ##ode_var=[ode_k1, ode_k2, ode_k3, ode_k4, ode_k5, ode_k6, ode_dbydt]
+
+    # 4th order Runge Kutta method
+    ode_k1 = matrix.Matrix(system_size)
+    ode_k2 = matrix.Matrix(system_size)
+    ode_k3 = matrix.Matrix(system_size)
+    ode_k4 = matrix.Matrix(system_size)
+    ode_dbydt = matrix.Matrix(system_size)
+    ode_var = [ode_k1, ode_k2, ode_k3, ode_k4, ode_dbydt]
+
+    synthesized_ckt_comps["ode_k1"] = ode_k1
+    synthesized_ckt_comps["ode_k2"] = ode_k2
+    synthesized_ckt_comps["ode_k3"] = ode_k3
+    synthesized_ckt_comps["ode_k4"] = ode_k4
+#    synthesized_ckt_comps["ode_k5"] = ode_k5
+#    synthesized_ckt_comps["ode_k6"] = ode_k6
+    synthesized_ckt_comps["ode_dbydt"] = ode_dbydt
+    synthesized_ckt_comps["ode_var"] = ode_var
+
+    # Trapezoidal rule
+    ##ode_k1=matrix.Matrix(system_size)
+    ##ode_k2=matrix.Matrix(system_size)
+    ##ode_dbydt=matrix.Matrix(system_size)
+    ##ode_var=[ode_k1, ode_k2, ode_dbydt]
+
+    # Assign the parameters to the circuit elements.
+#    NwRdr.read_circuit_parameters(nw_input, conn_ckt_mat, branch_params, component_objects, components_found)
+
+#    # Read the control code and the descriptions of the control code
+#    control_files,  control_functions,  control_file_inputs, \
+#            control_file_outputs, control_file_staticvars, control_file_timeevents, \
+#            control_file_variablestorage,  control_file_events = \
+#            NwRdr.update_control_code(component_objects, components_found, \
+#                                      controlled_elements, meter_list, control_files)
+#
+#    import __control
+#
+#    plotted_variable_list = []
+#    for c1 in control_file_variablestorage.keys():
+#        if control_file_variablestorage[c1][1]=="yes":
+#            plotted_variable_list.append(c1)
+
+    return
+
+
+
+
+
+def simulation_iterations(sim_id, time):
+    sim_para_model = SimulationCase.objects.get(id=int(sim_id))
+    f_path = os.path.join(os.sep, \
+                sim_para_model.sim_working_directory, \
+                "check_threading.txt")
+    f = open(f_path, "w")
+    t = float(time)
+    t_step = 0.1
+    t_start = t + t_step
+    
+    check_path = os.path.join(os.sep, \
+                        sim_para_model.sim_working_directory, \
+                        "sim_log_run_state.txt")
+
+    while t>0.0:
+        try:
+            check_status = open(check_path, "r")
+        except:
+            pass
+        else:
+            for line in check_status:
+                if line=="Start":
+                    t = 0.0
+                if line=="Run":
+                    t += 0.00001
+                    if t>=t_start:
+                        f.write(str(t))
+                        f.write("\n")
+                        t_start += t_step
+                if line=="Stop":
+                    t = 0.0
+    check_status.close()
+    f.close()
+    return
 
 # Create your views here.
 
@@ -404,6 +716,10 @@ def new_simulation(request):
                 'simulation_form' : simulation_form})
 
     else:
+        print(request.POST)
+        print
+        print
+        
         if "save_ckt_schematic" in request.POST and \
                 request.POST["save_ckt_schematic"]=="Save circuit file":
             sim_id, sim_state, ckt_schematic_form, ckt_errors = save_circuit_schematic(request)
@@ -587,7 +903,6 @@ def new_simulation(request):
                         # Also performs a scrubbing of circuit spreadsheet
                         conn_ckt_mat.append(NwRdr.csv_reader(ckt_file_object))
 
-
                 if not ckt_error_list:
                     # Making a list of the type of components in the 
                     # circuit.
@@ -613,6 +928,108 @@ def new_simulation(request):
                             pre_run_check(ckt_file_item, circuit_analysis_components[1])
                         if comp_error:
                             ckt_error_list.extend(comp_error)
+                
+                f_path = os.path.join(os.sep, \
+                                    sim_para_model.sim_working_directory, \
+                                    "sim_log_run_state.txt")
+                print("c1")
+                try:
+                    f = open(f_path, "r")
+                except:
+                    f = open(f_path, "w")
+                    f.write("Start")
+                    f.close()
+                    sim_status = "Start"
+                    print("c2")
+                else:
+                    print("c3")
+                    for line in f:
+                        if not line=="Run":
+                            f.close()
+                            f = open(f_path, "w")
+                            f.write("Start")
+                            f.close()
+                        else:
+                            sim_status = "Run"
+
+                if sim_status=="Start":
+                    simulator_loop = threading.Thread(target=simulation_iterations, \
+                            kwargs={'sim_id':sim_id, \
+                                    'time':0.0, })
+                    simulator_loop.start()
+                
+                return render(request,
+                    "output_interface.html",
+                    {'sim_id' : sim_id,
+                    'sim_state' : sim_state,
+                    'ckt_error_list' : ckt_error_list})
+
+        elif "run_simulation" in request.POST and request.POST["run_simulation"]=="Run":
+            print("Here")
+            if "sim_state" in request.POST:
+                sim_state = int(request.POST["sim_state"])
+            if "sim_id" in request.POST:
+                sim_id = int(request.POST["sim_id"])
+                if sim_id>0:
+                    sim_para_model = SimulationCase.objects.get(id=sim_id)
+
+                    f_path = os.path.join(os.sep, \
+                                        sim_para_model.sim_working_directory, \
+                                        "sim_log_run_state.txt")
+                    f = open(f_path, "w")
+                    f.write("Run")
+                    f.close()
+                
+                ckt_error_list = []
+
+                return render(request,
+                    "output_interface.html",
+                    {'sim_id' : sim_id,
+                    'sim_state' : sim_state,
+                    'ckt_error_list' : ckt_error_list})
+
+        elif "stop_simulation" in request.POST and request.POST["stop_simulation"]=="Stop":
+            if "sim_state" in request.POST:
+                sim_state = int(request.POST["sim_state"])
+            if "sim_id" in request.POST:
+                sim_id = int(request.POST["sim_id"])
+                if sim_id>0:
+                    sim_para_model = SimulationCase.objects.get(id=sim_id)
+                    sim_para_model.sim_run_state = 2
+                    sim_para_model.save()
+
+                    f_path = os.path.join(os.sep, \
+                                        sim_para_model.sim_working_directory, \
+                                        "sim_log_run_state.txt")
+                    f = open(f_path, "w")
+                    f.write("Stop")
+                    f.close()
+                
+                ckt_error_list = []
+
+                return render(request,
+                    "output_interface.html",
+                    {'sim_id' : sim_id,
+                    'sim_state' : sim_state,
+                    'ckt_error_list' : ckt_error_list})
+
+        elif "pause_simulation" in request.POST and request.POST["pause_simulation"]=="Pause":
+            if "sim_state" in request.POST:
+                sim_state = int(request.POST["sim_state"])
+            if "sim_id" in request.POST:
+                sim_id = int(request.POST["sim_id"])
+                if sim_id>0:
+                    sim_para_model = SimulationCase.objects.get(id=sim_id)
+                    sim_para_model.sim_run_state = 3
+                    sim_para_model.save()
+                    f_path = os.path.join(os.sep, \
+                                        sim_para_model.sim_working_directory, \
+                                        "sim_log_run_state.txt")
+                    f = open(f_path, "w")
+                    f.write("Pause")
+                    f.close()
+                    
+                ckt_error_list = []
 
                 return render(request,
                     "output_interface.html",

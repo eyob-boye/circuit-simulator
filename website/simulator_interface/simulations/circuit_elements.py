@@ -231,6 +231,20 @@ class Resistor:
     def pre_run_check(self, ckt_file_item, branch_map):
         pass
 
+    def assign_parameters(self, ckt_file_list):
+        for ckt_file_item in ckt_file_list:
+            try:
+                check_resistor = ckt_file_item.resistor_set.all().\
+                        filter(comp_tag=self.tag)
+            except:
+                pass
+            else:
+                if check_resistor and len(check_resistor)==1:
+                    comp_model = models.ResistorForm(instance=check_resistor[0])
+                    self.resistor = comp_model.comp_resistor
+        return
+
+
 class Variable_Resistor:
     """
     Variable Resistor class. Similar to the class
@@ -606,6 +620,19 @@ class Inductor:
 
     def pre_run_check(self, ckt_file_item, branch_map):
         pass
+
+    def assign_parameters(self, ckt_file_list):
+        for ckt_file_item in ckt_file_list:
+            try:
+                check_inductor = ckt_file_item.inductor_set.all().\
+                        filter(comp_tag=self.tag)
+            except:
+                pass
+            else:
+                if check_inductor and len(check_inductor)==1:
+                    comp_model = models.InductorForm(instance=check_inductor[0])
+                    self.inductor = comp_model.comp_inductor
+        return
 
 
 class Variable_Inductor:
@@ -1154,6 +1181,21 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
                                         as the component.")
         return comp_errors
 
+    def assign_parameters(self, ckt_file_list):
+        for ckt_file_item in ckt_file_list:
+            try:
+                check_capacitor = ckt_file_item.capacitor_set.all().\
+                        filter(comp_tag=self.tag)
+            except:
+                pass
+            else:
+                if check_capacitor and len(check_capacitor)==1:
+                    comp_model = models.CapacitorForm(instance=check_capacitor[0])
+                    self.capacitor = comp_model.comp_capacitor
+                    self.polrty = NwRdr.csv_tuple_2D(comp_model.comp_polarity)
+                    self.polrty_3D = NwRdr.csv_tuple(comp_model.comp_polarity_3D)
+        return
+
 
 class Voltage_Source:
     """
@@ -1516,6 +1558,24 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
                                         as the component.")
         return comp_errors
 
+    def assign_parameters(self, ckt_file_list):
+        for ckt_file_item in ckt_file_list:
+            try:
+                check_voltage_source = ckt_file_item.voltage_source_set.all().\
+                        filter(comp_tag=self.tag)
+            except:
+                pass
+            else:
+                if check_voltage_source and len(check_voltage_source)==1:
+                    comp_model = models.Voltage_SourceForm(instance=check_voltage_source[0])
+                    self.polrty = NwRdr.csv_tuple_2D(comp_model.comp_polarity)
+                    self.polrty_3D = NwRdr.csv_tuple(comp_model.comp_polarity_3D)
+                    self.v_peak = comp_model.comp_volt_peak
+                    self.v_freq = comp_model.comp_volt_freq
+                    self.v_phase = comp_model.comp_volt_phase
+                    self.v_offset = comp_model.comp_volt_offset
+        return
+
 
 class Ammeter:
     """
@@ -1853,6 +1913,21 @@ Check ammeter at %s in sheet %s" %(self.pos, self.sheet_name)
                                     comp_errors.append("Polarity can't be the same element \
                                         as the component.")
         return comp_errors
+
+    def assign_parameters(self, ckt_file_list):
+        for ckt_file_item in ckt_file_list:
+            try:
+                check_ammeter = ckt_file_item.ammeter_set.all().\
+                        filter(comp_tag=self.tag)
+            except:
+                pass
+            else:
+                if check_ammeter and len(check_ammeter)==1:
+                    comp_model = models.AmmeterForm(instance=check_ammeter[0])
+                    self.polrty = NwRdr.csv_tuple_2D(comp_model.comp_polarity)
+                    self.polrty_3D = NwRdr.csv_tuple(comp_model.comp_polarity_3D)
+        return
+
 
 class Voltmeter:
     """
@@ -2230,6 +2305,21 @@ Check voltmeter at %s in sheet %s" %(self.pos, self.sheet_name)
                                     comp_errors.append("Polarity can't be the same element \
                                         as the component.")
         return comp_errors
+
+    def assign_parameters(self, ckt_file_list):
+        for ckt_file_item in ckt_file_list:
+            try:
+                check_voltmeter = ckt_file_item.voltmeter_set.all().\
+                        filter(comp_tag=self.tag)
+            except:
+                pass
+            else:
+                if check_voltmeter and len(check_voltmeter)==1:
+                    comp_model = models.VoltmeterForm(instance=check_voltmeter[0])
+                    self.polrty = NwRdr.csv_tuple_2D(comp_model.comp_polarity)
+                    self.polrty_3D = NwRdr.csv_tuple(comp_model.comp_polarity_3D)
+                    self.vm_level = comp_model.comp_volt_level
+        return
 
 
 class Current_Source:
@@ -3284,6 +3374,21 @@ Check diode at %s in sheet %s" %(self.pos, self.sheet_name)
                                     comp_errors.append("Polarity can't be the same element \
                                         as the component.")
         return comp_errors
+
+    def assign_parameters(self, ckt_file_list):
+        for ckt_file_item in ckt_file_list:
+            try:
+                check_diode = ckt_file_item.diode_set.all().\
+                        filter(comp_tag=self.tag)
+            except:
+                pass
+            else:
+                if check_diode and len(check_diode)==1:
+                    comp_model = models.DiodeForm(instance=check_diode[0])
+                    self.polrty = NwRdr.csv_tuple_2D(comp_model.comp_polarity)
+                    self.polrty_3D = NwRdr.csv_tuple(comp_model.comp_polarity_3D)
+                    self.diode_level = comp_model.comp_volt_level
+        return
 
 
 class Switch:
