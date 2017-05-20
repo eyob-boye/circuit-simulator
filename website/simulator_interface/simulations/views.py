@@ -7,7 +7,7 @@ import os
 import network_reader as NwRdr
 import circuit_elements as CktElem
 import matrix
-import threading
+import multiprocessing
 
 
 def prepare_simulation_objects(sim_components, ckt_topo, conn_ckt_mat):
@@ -282,8 +282,6 @@ def prepare_simulation_objects(sim_components, ckt_topo, conn_ckt_mat):
 
 
 
-
-
 def simulation_iterations(sim_id, time):
     sim_para_model = SimulationCase.objects.get(id=int(sim_id))
     f_path = os.path.join(os.sep, \
@@ -294,30 +292,20 @@ def simulation_iterations(sim_id, time):
     t_step = 0.1
     t_start = t + t_step
     
-    check_path = os.path.join(os.sep, \
-                        sim_para_model.sim_working_directory, \
-                        "sim_log_run_state.txt")
-
-    while t>0.0:
-        try:
-            check_status = open(check_path, "r")
-        except:
-            pass
-        else:
-            for line in check_status:
-                if line=="Start":
-                    t = 0.0
-                if line=="Run":
-                    t += 0.00001
-                    if t>=t_start:
-                        f.write(str(t))
-                        f.write("\n")
-                        t_start += t_step
-                if line=="Stop":
-                    t = 0.0
-    check_status.close()
+    while t>=0.0:
+        t += 0.00001
+        if t>=t_start:
+            f.write(str(t))
+            f.write("\n")
+            t_start += t_step
     f.close()
     return
+
+
+simulation_iteration_collection = {}
+
+
+
 
 # Create your views here.
 
@@ -929,34 +917,38 @@ def new_simulation(request):
                         if comp_error:
                             ckt_error_list.extend(comp_error)
                 
-                f_path = os.path.join(os.sep, \
-                                    sim_para_model.sim_working_directory, \
-                                    "sim_log_run_state.txt")
-                print("c1")
-                try:
-                    f = open(f_path, "r")
-                except:
-                    f = open(f_path, "w")
-                    f.write("Start")
-                    f.close()
-                    sim_status = "Start"
-                    print("c2")
-                else:
-                    print("c3")
-                    for line in f:
-                        if not line=="Run":
-                            f.close()
-                            f = open(f_path, "w")
-                            f.write("Start")
-                            f.close()
-                        else:
-                            sim_status = "Run"
+#                f_path = os.path.join(os.sep, \
+#                                    sim_para_model.sim_working_directory, \
+#                                    "sim_log_run_state.txt")
+#
+#                try:
+#                    f = open(f_path, "r")
+#                except:
+#                    f = open(f_path, "w")
+#                    f.write("Start")
+#                    f.close()
+#                    sim_status = "Start"
+#                else:
+#                    for line in f:
+#                        if not line=="Run":
+#                            f = open(f_path, "w")
+#                            f.write("Start")
+#                            sim_status = "Start"
+#                        else:
+#                            sim_status = "Run"
+#                f.close()
 
-                if sim_status=="Start":
-                    simulator_loop = threading.Thread(target=simulation_iterations, \
+                if "sim"+str(sim_para_model.id) not in simulation_iteration_collection.keys():
+#                    output_file_path = os.path.join(os.sep, \
+#                                sim_para_model.sim_working_directory, \
+#                                "check_threading.txt")
+#                    output_file_object = open(output_file_path, "w")
+                    simulator_loop = multiprocessing.Process(target=simulation_iterations, \
                             kwargs={'sim_id':sim_id, \
                                     'time':0.0, })
                     simulator_loop.start()
+                    simulation_iteration_collection["sim"+str(sim_para_model.id)] = \
+                            simulator_loop
                 
                 return render(request,
                     "output_interface.html",
@@ -973,12 +965,12 @@ def new_simulation(request):
                 if sim_id>0:
                     sim_para_model = SimulationCase.objects.get(id=sim_id)
 
-                    f_path = os.path.join(os.sep, \
-                                        sim_para_model.sim_working_directory, \
-                                        "sim_log_run_state.txt")
-                    f = open(f_path, "w")
-                    f.write("Run")
-                    f.close()
+#                    f_path = os.path.join(os.sep, \
+#                                        sim_para_model.sim_working_directory, \
+#                                        "sim_log_run_state.txt")
+#                    f = open(f_path, "w")
+#                    f.write("Run")
+#                    f.close()
                 
                 ckt_error_list = []
 
@@ -995,15 +987,18 @@ def new_simulation(request):
                 sim_id = int(request.POST["sim_id"])
                 if sim_id>0:
                     sim_para_model = SimulationCase.objects.get(id=sim_id)
-                    sim_para_model.sim_run_state = 2
-                    sim_para_model.save()
 
-                    f_path = os.path.join(os.sep, \
-                                        sim_para_model.sim_working_directory, \
-                                        "sim_log_run_state.txt")
-                    f = open(f_path, "w")
-                    f.write("Stop")
-                    f.close()
+#                    f_path = os.path.join(os.sep, \
+#                                        sim_para_model.sim_working_directory, \
+#                                        "sim_log_run_state.txt")
+#                    f = open(f_path, "w")
+#                    f.write("Stop")
+#                    f.close()
+
+                    if "sim"+str(sim_para_model.id) in simulation_iteration_collection.keys():
+                        simulator_loop = \
+                                simulation_iteration_collection["sim"+str(sim_para_model.id)]
+                        simulator_loop.terminate()
                 
                 ckt_error_list = []
 
@@ -1025,9 +1020,9 @@ def new_simulation(request):
                     f_path = os.path.join(os.sep, \
                                         sim_para_model.sim_working_directory, \
                                         "sim_log_run_state.txt")
-                    f = open(f_path, "w")
-                    f.write("Pause")
-                    f.close()
+#                    f = open(f_path, "w")
+#                    f.write("Pause")
+#                    f.close()
                     
                 ckt_error_list = []
 
