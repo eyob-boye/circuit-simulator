@@ -125,6 +125,57 @@ class CircuitComponents(models.Model):
         return "Component "+self.comp_type+" with name "+self.comp_tag+" at "+self.comp_pos+" in sheet "+self.sheet_name+".csv"
 
 
+class PlotLines(models.Model):
+    line_name = models.CharField(max_length=50, verbose_name="Waveform source")
+    line_type = models.CharField(max_length=1,
+                                        choices=(("M", "Model"),
+                                                 ("V", "VariableStorage")),
+                                        default="M")
+    line_pos = models.IntegerField()
+    sim_case = models.ForeignKey(SimulationCase)
+
+    def __unicode__(self):
+        return "Source "+self.line_name
+
+
+class PlotLinesForm(ModelForm):
+    class Meta:
+        model = PlotLines
+        fields = ('line_name', )
+
+
+class CircuitPlot(models.Model):
+    plot_title = models.CharField(max_length=100, default="Plot", \
+                verbose_name = "Plot title")
+    sim_case = models.ForeignKey(SimulationCase)
+
+    def __unicode__(self):
+        return "Plot with title "+self.plot_title
+
+
+class CircuitPlotForm(ModelForm):
+    class Meta:
+        model = CircuitPlot
+        fields = ('plot_title', )
+
+
+class CircuitWaveforms(models.Model):
+    waveform_legend = models.CharField(max_length=20, blank=True, null=True)
+    waveform_scale = models.FloatField(default=1.0, verbose_name = "Scaling Factor")
+    circuit_plot = models.ForeignKey(CircuitPlot)
+    waveform = models.ManyToManyField(PlotLines)
+
+    def __unicode__(self):
+        return "Waveform with legend "+self.waveform_legend
+
+
+class CircuitWaveformsForm(ModelForm):
+    class Meta:
+        model = CircuitWaveforms
+        fields = ('waveform_legend', \
+                'waveform_scale',)
+
+
 class Resistor(models.Model):
     comp_type = models.CharField(max_length=100, default="Resistor", \
             verbose_name="Component type")

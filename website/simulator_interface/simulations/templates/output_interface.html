@@ -22,16 +22,79 @@
 			{% endfor %}
 			</ol>
 		{% else %}
-			<p>All ok</p>
-			<input type="submit" name="run_simulation" value="Run">
-			<input type="submit" name="stop_simulation" value="Stop">
+			{% if run_state == 0 %}
+				<p>The simulation is ready, click on the Run button to start it.</p>
+			{% endif %}
+
+			{% if run_state == 1 %}
+				<p>The simulation is running. If you want to restart it, click on the Stop button
+				to stop the simulation and then click on Run.</p>
+			{% endif %}
+			
+			{% if run_state == 2 %}
+				<p>The simulation has been stopped. If you want to restart it, click on the Run
+				button.</p>
+			{% endif %}
+			
+			{% if run_state == 0 or run_state == 2 %}
+				<input type="submit" name="run_simulation" value="Run">
+			{% endif %}
+			{% if run_state == 1 %}
+				<input type="submit" name="stop_simulation" value="Stop">
+			{% endif %}
 		{% endif %}
 
+		<br><br>
+		
+		{% for plot_items in plot_form_list %}
+			{% if plot_items.0.1 == 1 %}
+				{{ plot_items.0.0 }} <br>
+				<input type="submit" name="start_plot" value="Start plot"><br>
+			{% else %}
+				<b>Plot title:</b>{{ plot_items.0.0.plot_title }} <br>
+				{% if plot_items.2 == 1 %}
+					{% for waveform_items in plot_items.1 %}
+						{% if waveform_items.1 == 1 %}
+							{% for waveform_comps in waveform_items.0 %}
+								<b>{{ waveform_comps.label }}:</b> {{ waveform_comps }} <br>
+							{% endfor %}
+							<b>Waveform source:</b>
+						 	<select name="waveform_source">
+						 	{% for plots_in_sim in all_waveforms_sim %}
+	  							<option value="{{ plots_in_sim.line_name }}">{{ plots_in_sim.line_name }}</option>
+	  						{% endfor %}
+	  						</select> <br>
+	  						<input type="submit" name="save_waveform" value="Save waveform"><br>
+						{% else %}
+							<b>Waveform {{ forloop.counter }}: </b>{{ waveform_items.0.waveform_legend }} <br>
+						{% endif %}
+					{% endfor %}
+					<input type="submit" name="add_waveform" value="Add waveform"><br>
+				{% else %}
+					{% for waveform_items in plot_items.1 %}
+						<b>Waveform {{ forloop.counter }}: </b>{{ waveform_items.0.waveform_legend }} <br>
+					{% endfor %}
+				{% endif %}
+				{% if plot_items.2 == 1 %}
+					<br>
+					<input type="submit" name="save_plot" value="Save plot"><br>
+				{% endif %}
+			{% endif %}
+			<br><br><br>
+		{% endfor %}
+		
+		
+		<br><br>
+		
+		<p>Click on the "Add plot" button below to create a new plot.</p>
+		<input type="submit" name="add_plot" value="Add plot">
+		<br><br>
 		<br><br>
 		<input type="submit" name="main_page" value="Back to main page">
 
 		<input type="hidden" name="sim_id" value="{{ sim_id }}">
 		<input type="hidden" name="sim_state" value="{{ sim_state }}">
+		<input type="hidden" name="plot_id" value="{{ plot_id }}">
 		{% csrf_token %}
 		</form>
 	{% endblock %}

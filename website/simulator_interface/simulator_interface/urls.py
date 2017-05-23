@@ -21,4 +21,5 @@ urlpatterns = [
     url(r'^admin/', include(admin.site.urls)),
     url(r'^$', views.index, name='homepage'),
     url(r'^new-simulation/$', views.new_simulation, name='new-simulation'),
+    url(r'^simulation-library/$', views.simulation_library, name='simulation-library'),
 ]

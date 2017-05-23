@@ -240,7 +240,7 @@ class Resistor:
                 pass
             else:
                 if check_resistor and len(check_resistor)==1:
-                    comp_model = models.ResistorForm(instance=check_resistor[0])
+                    comp_model = check_resistor[0]
                     self.resistor = comp_model.comp_resistor
         return
 
@@ -630,7 +630,7 @@ class Inductor:
                 pass
             else:
                 if check_inductor and len(check_inductor)==1:
-                    comp_model = models.InductorForm(instance=check_inductor[0])
+                    comp_model = check_inductor[0]
                     self.inductor = comp_model.comp_inductor
         return
 
@@ -1190,7 +1190,7 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
                 pass
             else:
                 if check_capacitor and len(check_capacitor)==1:
-                    comp_model = models.CapacitorForm(instance=check_capacitor[0])
+                    comp_model = check_capacitor[0]
                     self.capacitor = comp_model.comp_capacitor
                     self.polrty = NwRdr.csv_tuple_2D(comp_model.comp_polarity)
                     self.polrty_3D = NwRdr.csv_tuple(comp_model.comp_polarity_3D)
@@ -1567,7 +1567,7 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
                 pass
             else:
                 if check_voltage_source and len(check_voltage_source)==1:
-                    comp_model = models.Voltage_SourceForm(instance=check_voltage_source[0])
+                    comp_model = check_voltage_source[0]
                     self.polrty = NwRdr.csv_tuple_2D(comp_model.comp_polarity)
                     self.polrty_3D = NwRdr.csv_tuple(comp_model.comp_polarity_3D)
                     self.v_peak = comp_model.comp_volt_peak
@@ -1923,7 +1923,7 @@ Check ammeter at %s in sheet %s" %(self.pos, self.sheet_name)
                 pass
             else:
                 if check_ammeter and len(check_ammeter)==1:
-                    comp_model = models.AmmeterForm(instance=check_ammeter[0])
+                    comp_model = check_ammeter[0]
                     self.polrty = NwRdr.csv_tuple_2D(comp_model.comp_polarity)
                     self.polrty_3D = NwRdr.csv_tuple(comp_model.comp_polarity_3D)
         return
@@ -2315,10 +2315,11 @@ Check voltmeter at %s in sheet %s" %(self.pos, self.sheet_name)
                 pass
             else:
                 if check_voltmeter and len(check_voltmeter)==1:
-                    comp_model = models.VoltmeterForm(instance=check_voltmeter[0])
+                    comp_model = check_voltmeter[0]
                     self.polrty = NwRdr.csv_tuple_2D(comp_model.comp_polarity)
                     self.polrty_3D = NwRdr.csv_tuple(comp_model.comp_polarity_3D)
                     self.vm_level = comp_model.comp_volt_level
+                    self.resistor = self.vm_level/1.0e-6
         return
 
 
@@ -3384,10 +3385,12 @@ Check diode at %s in sheet %s" %(self.pos, self.sheet_name)
                 pass
             else:
                 if check_diode and len(check_diode)==1:
-                    comp_model = models.DiodeForm(instance=check_diode[0])
+                    comp_model = check_diode[0]
                     self.polrty = NwRdr.csv_tuple_2D(comp_model.comp_polarity)
                     self.polrty_3D = NwRdr.csv_tuple(comp_model.comp_polarity_3D)
                     self.diode_level = comp_model.comp_volt_level
+                    self.resistor_off = self.diode_level/1.0e-6
+                    self.resistor = self.resistor_off
         return
 
 
