@@ -9,6 +9,7 @@ import circuit_elements as CktElem
 import solver as Slv
 import matrix
 import multiprocessing
+import matplotlib.pyplot as Matpyplot
 
 
 def prepare_simulation_objects(sim_components, ckt_topo, conn_ckt_mat):
@@ -2281,6 +2282,10 @@ def new_simulation(request):
                     plot_form_list.append([[new_circuit_form, 1], [], 1])
 
                 ckt_error_list = []
+                
+                print(plot_form_list)
+                print
+                print
 
                 return render(request,
                     "output_interface.html",
@@ -2663,6 +2668,95 @@ def new_simulation(request):
                                     'sim_state' : sim_state,
                                     'ckt_component_list' : ckt_component_list,
                                     'ckt_errors' : ckt_error_list})
+
+                    generate_plot_list = []
+                    for ckt_plot_items in sim_para_model.circuitplot_set.all():
+                        generate_plot_list.append("generate_plot" + \
+                                "_" + str(ckt_plot_items.id))
+                    
+                    if generate_plot_list:
+                        for generate_plot_item in generate_plot_list:
+                            if generate_plot_item in request.POST and \
+                                    request.POST[generate_plot_item]=="Plot":
+                                ckt_plot_id = int(generate_plot_item.split("_")[-1])
+                                ckt_plot_item = sim_para_model.circuitplot_set.get(id=ckt_plot_id)
+                                print("Check the plot name")
+                                print(ckt_plot_item)
+                                y_var_indices = []
+                                y_var = []
+                                for waveform_items in ckt_plot_item.circuitwaveforms_set.all():
+                                    print("Check the waveforms")
+                                    print(waveform_items)
+                                    print(waveform_items.waveform.all())
+                                    for waveform_plots in waveform_items.waveform.all():
+                                        print(waveform_plots, waveform_plots.line_pos)
+                                        y_var_indices.append(waveform_plots.line_pos)
+                                        y_var.append([])
+                                print
+                                print
+                                
+                                outputfile_path = os.path.join(os.sep, \
+                                    sim_para_model.sim_working_directory, \
+                                    sim_para_model.sim_output_file)
+
+                                # Try to read the file.
+                                try:
+                                    outputfile = open(outputfile_path, "r")
+                                except:
+                                    pass
+                                else:
+                                    x_var = []
+                                    for line_output in outputfile:
+                                        try:
+                                            xvalue = line_output.split()[0]
+                                        except:
+                                            pass
+                                        else:
+                                            x_var.append(xvalue)
+                                            
+                                        for c1 in range(len(y_var)):
+                                            try:
+                                                yvalue = line_output.split()[y_var_indices[c1]]
+                                            except:
+                                                pass
+                                            else:
+                                                y_var[c1].append(yvalue)
+                                    
+                                    for c1 in range(len(x_var)-1, len(x_var)-5, -1):
+                                        del x_var[c1]
+                                    
+                                    for c1 in range(len(y_var)):
+                                        for c2 in range(len(y_var[c1])-1, len(x_var)-1, -1):
+                                            del y_var[c1][c2]
+                                
+                                print(len(x_var))
+                                print(len(y_var[0]))
+                                for c1 in range(len(y_var)):
+                                    Matpyplot.plot(x_var, y_var[c1])
+                                Matpyplot.show()
+                                
+                                if "sim"+str(sim_para_model.id) in simulation_iteration_collection.keys():
+                                    run_state = 1
+                                else:
+                                    run_state = 0
+
+                                plot_form_list = []
+                                for ckt_plots in sim_para_model.circuitplot_set.all():
+                                    prev_plot_list = []
+                                    for plot_items in ckt_plots.circuitwaveforms_set.all():
+                                        prev_plot_list.append([plot_items, 0])
+                                    plot_form_list.append([[ckt_plots, 0], prev_plot_list, 0])
+                                
+                                ckt_error_list = []
+
+                                return render(request,
+                                    "output_interface.html",
+                                    {'sim_id' : sim_id,
+                                    'sim_state' : sim_state,
+                                    'run_state' : run_state,
+                                    'plot_id' : -1,
+                                    'ckt_error_list' : ckt_error_list,
+                                    'plot_form_list' : plot_form_list})
 
             choosing_simulations = []
             sim_list = SimulationCase.objects.all()

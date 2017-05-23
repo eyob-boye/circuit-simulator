@@ -47,9 +47,12 @@
 		<br><br>
 		
 		{% for plot_items in plot_form_list %}
+			<table>
+			<tr>
+			<td style="text-align:left; padding:25px">
 			{% if plot_items.0.1 == 1 %}
 				{{ plot_items.0.0 }} <br>
-				<input type="submit" name="start_plot" value="Start plot"><br>
+				<input type="submit" name="start_plot" value="Start plot"> <br>
 			{% else %}
 				<b>Plot title:</b>{{ plot_items.0.0.plot_title }} <br>
 				{% if plot_items.2 == 1 %}
@@ -80,7 +83,17 @@
 					<input type="submit" name="save_plot" value="Save plot"><br>
 				{% endif %}
 			{% endif %}
-			<br><br><br>
+			</td>
+			<td>
+				{% if plot_items.2 == 0 %}
+					<br>
+					<input type="submit" name="generate_plot_{{ plot_items.0.0.id }}" 
+					value="Plot"><br>
+				{% endif %}
+			</td>
+			</tr>
+			</table>
+			<br>
 		{% endfor %}
 		
 		
