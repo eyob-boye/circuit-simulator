@@ -51,8 +51,10 @@
 			<tr>
 			<td style="text-align:left; padding:25px">
 			{% if plot_items.0.1 == 1 %}
+				<table>
 				{{ plot_items.0.0 }} <br>
 				<input type="submit" name="start_plot" value="Start plot"> <br>
+				</table>
 			{% else %}
 				<b>Plot title:</b>{{ plot_items.0.0.plot_title }} <br>
 				{% if plot_items.2 == 1 %}
