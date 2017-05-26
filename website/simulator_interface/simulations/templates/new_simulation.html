@@ -57,6 +57,9 @@
 		{% endif %}
 
 		{% if sim_state >= 4 %}
+			<input type="submit" name="add_control" value="Edit control"> <br>
+			<p>The "Edit control" button is optional and only if there are any control files
+			in the simulation.</p>
 			<input type="submit" name="view_output" value="View output"> <br>
 			<p>Click above to run the simulation and view output plots.</p>
 		{% endif %}

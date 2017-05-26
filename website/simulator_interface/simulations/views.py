@@ -9,6 +9,8 @@ import circuit_elements as CktElem
 import solver as Slv
 import matrix
 import multiprocessing
+#import matplotlib
+#matplotlib.use('Agg')
 import matplotlib.pyplot as Matpyplot
 
 
@@ -1491,6 +1493,141 @@ def save_simulation_parameters(request):
     return [sim_id, sim_state, simulation_form, ckt_schematic_form]
 
 
+def check_control_files(sim_para_model):
+    control_file_list = sim_para_model.controlfile_set.all()
+    control_file_form = []
+    control_errors = -1
+    # List the existing circuits.
+    for control_file_item in control_file_list:
+        control_item_dict = model_to_dict(control_file_item)
+        control_item_form = models.ControlFileForm(control_item_dict, \
+                                            instance=control_file_item)
+        control_full_path = os.path.join(os.sep, \
+                                    sim_para_model.sim_working_directory, \
+                                    control_file_item.control_file_name)
+
+        # Try to read the file.
+        try:
+            check_control_file = open(control_full_path, "r")
+        # If can't be read, it means file doesn't exist in the working directory.
+        except:
+
+            if control_item_form.is_valid():
+                control_item_form.add_error('control_file_descrip', \
+                                    'Control file could not be read. \
+                                    Make sure it is in same directory as working directory above')
+                control_errors = 1
+
+            control_file_form.append([control_file_item, control_item_form])
+
+        # If it can be read, it could be a genuine file in which case save it.
+        # Or else, it may not be a .csv file, in which case raise an error.
+        else:
+            if len(control_file_item.control_file_name.split("."))>1 \
+                    and control_file_item.control_file_name.split(".")[-1]=="py":
+                control_file_form.append([control_file_item, \
+                                        models.ControlFileForm(instance=control_file_item)])
+            else:
+                control_item_form.add_error('control_file_descrip', \
+                                        'Control file must be a .py file.')
+                control_file_form.append([[], control_item_form])
+                control_errors = 1
+
+    return [control_file_form, control_errors]
+
+
+def save_control_func(request):
+    """
+    This function saves the circuit spreadsheet details and also
+    runs the check whether the file exists in the working directory
+    and if it is a .csv file.
+    """
+    if "sim_id" in request.POST:
+        sim_id = int(request.POST["sim_id"])
+        if sim_id>0:
+            sim_para_model = SimulationCase.objects.get(id=sim_id)
+
+    if "sim_state" in request.POST:
+        sim_state = int(request.POST["sim_state"])
+    
+    control_file_form, control_errors = check_control_files(sim_para_model)
+
+    # ckt_file_path in request.POST contains the circuit file name because no
+    # upload takes place and only file name is obtained.
+    if u'control_file' in request.POST:
+        control_file = models.ControlFile()
+        # Add the circuit file to the working directory path
+        received_control_file_name = request.POST.getlist(u'control_file')[0]
+        control_full_path = os.path.join(os.sep, \
+                                sim_para_model.sim_working_directory, \
+                                received_control_file_name)
+        # Try to read the file.
+        try:
+            check_control_file = open(control_full_path, "r")
+        # If can't be read, it means file doesn't exist in the working directory.
+        except:
+            control_form = models.ControlFileForm(request.POST)
+            if control_form.is_valid():
+                control_form.add_error('control_file_descrip', \
+                                    'Control file could not be read. \
+                                    Make sure it is in same directory as working directory above')
+            control_file_form.append([[], control_form])
+            control_errors = 1
+
+        # If it can be read, it could be a genuine file in which case save it.
+        # Or else, it may not be a .csv file, in which case raise an error.
+        else:
+            if len(received_control_file_name.split("."))>1 and \
+                    received_control_file_name.split(".")[-1]=="py":
+                repeated_circuit = False
+                for other_control_files in sim_para_model.controlfile_set.all():
+                    if received_control_file_name==other_control_files.control_file_name:
+                        repeated_circuit = True
+                if repeated_circuit:
+                    control_form = models.ControlFileForm(request.POST)
+                    control_form.add_error('control_file_descrip', \
+                                    'Control file has already been added.')
+                    control_file_form.append([[], control_form])
+                    control_errors = 1
+                else:
+                    control_file.control_file_name = received_control_file_name
+                    if u'control_file_descrip' in request.POST:
+                        control_file.control_file_descrip = \
+                                request.POST.getlist(u'control_file_descrip')[0]
+                    control_file.sim_case = sim_para_model
+                    control_file.save()
+                    sim_para_model.save()
+                    control_file_form.append([control_file, models.ControlFileForm(instance=control_file)])
+            else:
+                control_form = models.ControlFileForm(request.POST)
+                control_form.add_error('control_file_descrip', \
+                                'Control file must be a .py file.')
+                control_file_form.append([[], control_form])
+                control_errors = 1
+
+    return [sim_id, sim_state, control_file_form, control_errors]
+
+
+def add_control_func(request):
+    """
+    This function adds a blank circuit schematic form.
+    """
+    if "sim_id" in request.POST:
+        sim_id = int(request.POST["sim_id"])
+        if sim_id>0:
+            sim_para_model = SimulationCase.objects.get(id=sim_id)
+
+    if "sim_state" in request.POST:
+        sim_state = int(request.POST["sim_state"])
+
+    control_file_form, control_errors = check_control_files(sim_para_model)
+
+    # Add a blank circuit form.
+    control_file_form.append([[], models.ControlFileForm()])
+    
+    return [sim_id, sim_state, control_file_form, control_errors]
+
+
 def check_circuit_errors(sim_para_model):
     ckt_file_list = sim_para_model.circuitschematics_set.all()
     ckt_schematic_form = []
@@ -1805,6 +1942,77 @@ def process_circuit_schematics(sim_para_model):
             circuit_analysis_components, ckt_error_list]
 
 
+def generating_control_comp_list(sim_para_model, config_control_file, control_form_type):
+    control_component_list = []
+    try:
+        control_input_list = \
+                config_control_file.controlinputs_set.all()
+    except:
+        control_input_list = []
+    input_component_list = []
+    if control_input_list:
+        for input_item in control_input_list:
+            input_component_list.append([input_item, []])
+    if control_form_type==1:
+        input_component_list.append([[], models.ControlInputsForm()])
+    control_component_list.append(input_component_list)
+
+    try:
+        control_output_list = \
+                config_control_file.controloutputs_set.all()
+    except:
+        control_output_list = []
+    output_component_list = []
+    if control_output_list:
+        for output_item in control_output_list:
+            output_component_list.append([output_item, []])
+    if control_form_type==2:
+        output_component_list.append([[], models.ControlOutputsForm()])
+    control_component_list.append(output_component_list)
+
+    try:
+        control_staticvar_list = \
+                config_control_file.controlstaticvariable_set.all()
+    except:
+        control_staticvar_list = []
+    staticvar_component_list = []
+    if control_staticvar_list:
+        for staticvar_item in control_staticvar_list:
+            staticvar_component_list.append([staticvar_item, []])
+    if control_form_type==3:
+        staticvar_component_list.append([[], models.ControlStaticVariableForm()])
+    control_component_list.append(staticvar_component_list)
+
+    try:
+        control_timeevent_list = \
+                config_control_file.controltimeevent_set.all()
+    except:
+        control_timeevent_list = []
+    timeevent_component_list = []
+    if control_timeevent_list:
+        for timeevent_item in control_timeevent_list:
+            timeevent_component_list.append([timeevent_item, []])
+    if control_form_type==4:
+        timeevent_component_list.append([[], models.ControlTimeEventForm()])
+    control_component_list.append(timeevent_component_list)
+
+    try:
+        control_varstore_list = \
+                sim_para_model.controlvariablestorage_set.all().\
+                filter(control_file_name=config_control_file.control_file_name)
+    except:
+        control_varstore_list = []
+    varstore_component_list = []
+    if control_varstore_list:
+        for varstore_item in control_varstore_list:
+            varstore_component_list.append([varstore_item, []])
+    if control_form_type==5:
+        varstore_component_list.append([[], models.ControlVariableStorageForm()])
+    control_component_list.append(varstore_component_list)
+
+    return control_component_list
+
+
 def index(request):
     return render(request, "index.html")
 
@@ -1934,6 +2142,77 @@ def new_simulation(request):
             components_found, component_objects, \
                     circuit_analysis_components, ckt_error_list = \
                     process_circuit_schematics(sim_para_model)
+
+            try:
+                meter_list = sim_para_model.metercomponents_set.all()
+            except:
+                meter_list = []
+
+            for comp_items in component_objects.keys():
+                if component_objects[comp_items].is_meter=="yes":
+                    meter_found = False
+                    if meter_list:
+                        check_meter = meter_list.\
+                                filter(comp_type=component_objects[comp_items].type).\
+                                filter(comp_tag=component_objects[comp_items].tag)
+                        if check_meter and len(check_meter)==1:
+                            old_meter_item = check_meter[0]
+                            old_meter_item.ckt_file_name = \
+                                    component_objects[comp_items].sheet_name
+                            old_meter_item.comp_pos_3D = \
+                                    component_objects[comp_items].pos_3D
+                            old_meter_item.save()
+                            sim_para_model.save()
+                            meter_found = True
+                        else:
+                            meter_found = False
+                    if not meter_found:
+                        new_meter_item = models.MeterComponents()
+                        new_meter_item.comp_type = component_objects[comp_items].type
+                        new_meter_item.comp_tag = component_objects[comp_items].tag
+                        new_meter_item.comp_pos_3D = component_objects[comp_items].pos_3D
+                        new_meter_item.ckt_file_name = component_objects[comp_items].sheet_name
+                        new_meter_item.comp_name = component_objects[comp_items].type + \
+                                "_" + component_objects[comp_items].tag
+                        new_meter_item.sim_case = sim_para_model
+                        new_meter_item.save()
+                        sim_para_model.save()
+
+            try:
+                control_comp_list = sim_para_model.controllablecomponents_set.all()
+            except:
+                control_comp_list = []
+
+            for comp_items in component_objects.keys():
+                if component_objects[comp_items].has_control=="yes":
+                    controllable_comp_found = False
+                    if control_comp_list:
+                        check_control_comp = control_comp_list.\
+                                filter(comp_type=component_objects[comp_items].type).\
+                                filter(comp_tag=component_objects[comp_items].tag)
+                        if check_control_comp and len(check_control_comp)==1:
+                            old_control_item = check_control_comp[0]
+                            old_control_item.ckt_file_name = \
+                                    component_objects[comp_items].sheet_name
+                            old_control_item.comp_pos_3D = \
+                                    component_objects[comp_items].pos_3D
+                            old_control_item.save()
+                            sim_para_model.save()
+                            controllable_comp_found = True
+                        else:
+                            controllable_comp_found = False
+                    if not controllable_comp_found:
+                        new_control_item = models.ControllableComponents()
+                        new_control_item.comp_type = component_objects[comp_items].type
+                        new_control_item.comp_tag = component_objects[comp_items].tag
+                        new_control_item.comp_pos_3D = component_objects[comp_items].pos_3D
+                        new_control_item.ckt_file_name = component_objects[comp_items].sheet_name
+                        new_control_item.comp_name = component_objects[comp_items].type + \
+                                "_" + component_objects[comp_items].tag
+                        new_control_item.control_tag = component_objects[comp_items].control_tag
+                        new_control_item.sim_case = sim_para_model
+                        new_control_item.save()
+                        sim_para_model.save()
 
             if not ckt_error_list:
                 sim_state = 3
@@ -2180,7 +2459,7 @@ def new_simulation(request):
                                     "Voltmeter", \
                                     "Diode", \
                                     "Switch", \
-                                    ]
+                                    "VariableResistor"]
                         for branch_check in components_in_branch:
                             resistor_found = False
                             for branch_comps in branch_check:
@@ -2193,7 +2472,7 @@ def new_simulation(request):
                                             "_" + component_objects[branch_comps].tag
                                     if len(branch_check)>1:
                                         branch_error += ", "
-                                branch_error += "does not have a resistor."
+                                branch_error += " does not have a resistor."
                                 ckt_error_list.append(branch_error)
 
                 if not ckt_error_list:
@@ -2282,10 +2561,6 @@ def new_simulation(request):
                     plot_form_list.append([[new_circuit_form, 1], [], 1])
 
                 ckt_error_list = []
-                
-                print(plot_form_list)
-                print
-                print
 
                 return render(request,
                     "output_interface.html",
@@ -2422,7 +2697,6 @@ def new_simulation(request):
                         new_plotline_object = sim_para_model.plotlines_set.\
                                 filter(line_type="M").\
                                 filter(line_name=new_plotline)
-                        print(new_plotline_object)
                         if new_plotline_object and len(new_plotline_object)==1:
                             new_waveform.waveform.add(new_plotline_object[0])
                         else:
@@ -2490,6 +2764,447 @@ def new_simulation(request):
                     'ckt_error_list' : ckt_error_list,
                     'plot_form_list' : plot_form_list})
 
+        if "save_control" in request.POST and \
+                request.POST["save_control"]=="Save control file":
+            sim_id, sim_state, control_file_form, ckt_errors = save_control_func(request)
+            ckt_error_list = []
+            return render(request,
+                "add_control_files.html",
+                {'sim_id' : sim_id,
+                'sim_state' : sim_state,
+                'control_file_form' : control_file_form,
+                'ckt_errors' : ckt_errors,
+                'ckt_error_list' : ckt_error_list})
+            
+
+        elif "add_control" in request.POST and \
+                (request.POST["add_control"]=="Add control file" or \
+                request.POST["add_control"]=="Edit control"):
+            sim_id, sim_state, control_file_form, ckt_errors = add_control_func(request)
+            ckt_error_list = []
+            return render(request,
+                "add_control_files.html",
+                {'sim_id' : sim_id,
+                'sim_state' : sim_state,
+                'control_file_form' : control_file_form,
+                'ckt_errors' : ckt_errors,
+                'ckt_error_list' : ckt_error_list})
+
+        elif "add_control_input" in request.POST and \
+                request.POST["add_control_input"]=="Add control input":
+            if "sim_state" in request.POST:
+                sim_state = int(request.POST["sim_state"])
+            if "control_id" in request.POST:
+                control_id = request.POST["control_id"]
+            if "sim_id" in request.POST:
+                sim_id = int(request.POST["sim_id"])
+                if sim_id>0:
+                    sim_para_model = SimulationCase.objects.get(id=sim_id)
+                    config_control_file = sim_para_model.controlfile_set.get(id=control_id)
+
+                    try:
+                        meter_list = sim_para_model.metercomponents_set.all()
+                    except:
+                        meter_list = []
+
+                    meter_name_list = []
+                    for meter_item in meter_list:
+                        meter_name_list.append(meter_item)
+
+                    control_component_list = generating_control_comp_list(\
+                                    sim_para_model, config_control_file, 1)
+#                    control_component_list = []
+#                    try:
+#                        control_input_list = \
+#                                config_control_file.controlinputs_set.all()
+#                    except:
+#                        control_input_list = []
+#                    input_component_list = []
+#                    if control_input_list:
+#                        for input_item in control_input_list:
+#                            input_component_list.append([input_item, []])
+#                    input_component_list.append([[], models.ControlInputsForm()])
+#                    control_component_list.append(input_component_list)
+#
+#                    try:
+#                        control_output_list = \
+#                                config_control_file.controloutputs_set.all()
+#                    except:
+#                        control_output_list = []
+#                    output_component_list = []
+#                    if control_output_list:
+#                        for output_item in control_output_list:
+#                            output_component_list.append([output_item, []])
+#                    control_component_list.append(output_component_list)
+#
+#                    try:
+#                        control_staticvar_list = \
+#                                config_control_file.controlstaticvariable_set.all()
+#                    except:
+#                        control_staticvar_list = []
+#                    staticvar_component_list = []
+#                    if control_staticvar_list:
+#                        for staticvar_item in control_staticvar_list:
+#                            staticvar_component_list.append([staticvar_item, []])
+#                    control_component_list.append(staticvar_component_list)
+#
+#                    try:
+#                        control_timeevent_list = \
+#                                config_control_file.controltimeevent_set.all()
+#                    except:
+#                        control_timeevent_list = []
+#                    timeevent_component_list = []
+#                    if control_timeevent_list:
+#                        for timeevent_item in control_timeevent_list:
+#                            timeevent_component_list.append([timeevent_item, []])
+#                    control_component_list.append(timeevent_component_list)
+#
+#                    try:
+#                        control_varstore_list = \
+#                                sim_para_model.controlvariablestorage_set.all().\
+#                                filter(control_file_name=config_control_file.control_file_name)
+#                    except:
+#                        control_varstore_list = []
+#                    varstore_component_list = []
+#                    if control_varstore_list:
+#                        for varstore_item in control_varstore_list:
+#                            varstore_component_list.append([varstore_item, []])
+#                    control_component_list.append(control_varstore_list)
+
+                    return render(request,
+                        "config_control_files.html",
+                        {'sim_id' : sim_id,
+                        'sim_state' : sim_state,
+                        'control_id' : control_id,
+                        'control_component_list' : control_component_list,
+                        'meter_list' : meter_name_list})
+
+        elif "add_control_output" in request.POST and \
+                request.POST["add_control_output"]=="Add control output":
+            if "sim_state" in request.POST:
+                sim_state = int(request.POST["sim_state"])
+            if "control_id" in request.POST:
+                control_id = request.POST["control_id"]
+            if "sim_id" in request.POST:
+                sim_id = int(request.POST["sim_id"])
+                if sim_id>0:
+                    sim_para_model = SimulationCase.objects.get(id=sim_id)
+                    config_control_file = sim_para_model.controlfile_set.get(id=control_id)
+
+                    try:
+                        control_model_list = sim_para_model.controllablecomponents_set.all()
+                    except:
+                        control_model_list = []
+
+                    controlmodel_name_list = []
+                    for control_model_item in control_model_list:
+                        controlmodel_name_list.append(control_model_item)
+
+                    control_component_list = generating_control_comp_list(\
+                                    sim_para_model, config_control_file, 2)
+
+                    return render(request,
+                        "config_control_files.html",
+                        {'sim_id' : sim_id,
+                        'sim_state' : sim_state,
+                        'control_id' : control_id,
+                        'control_component_list' : control_component_list,
+                        'control_model_list' : controlmodel_name_list})
+
+        elif "add_control_static" in request.POST and \
+                request.POST["add_control_static"]=="Add static variable":
+            if "sim_state" in request.POST:
+                sim_state = int(request.POST["sim_state"])
+            if "control_id" in request.POST:
+                control_id = request.POST["control_id"]
+            if "sim_id" in request.POST:
+                sim_id = int(request.POST["sim_id"])
+                if sim_id>0:
+                    sim_para_model = SimulationCase.objects.get(id=sim_id)
+                    config_control_file = sim_para_model.controlfile_set.get(id=control_id)
+
+                    control_component_list = generating_control_comp_list(\
+                                    sim_para_model, config_control_file, 3)
+
+                    return render(request,
+                        "config_control_files.html",
+                        {'sim_id' : sim_id,
+                        'sim_state' : sim_state,
+                        'control_id' : control_id,
+                        'control_component_list' : control_component_list})
+
+        elif "add_control_timeevent" in request.POST and \
+                request.POST["add_control_timeevent"]=="Add time event":
+            if "sim_state" in request.POST:
+                sim_state = int(request.POST["sim_state"])
+            if "control_id" in request.POST:
+                control_id = request.POST["control_id"]
+            if "sim_id" in request.POST:
+                sim_id = int(request.POST["sim_id"])
+                if sim_id>0:
+                    sim_para_model = SimulationCase.objects.get(id=sim_id)
+                    config_control_file = sim_para_model.controlfile_set.get(id=control_id)
+
+                    control_component_list = generating_control_comp_list(\
+                                    sim_para_model, config_control_file, 4)
+
+                    return render(request,
+                        "config_control_files.html",
+                        {'sim_id' : sim_id,
+                        'sim_state' : sim_state,
+                        'control_id' : control_id,
+                        'control_component_list' : control_component_list})
+
+        elif "add_control_varstore" in request.POST and \
+                request.POST["add_control_varstore"]=="Add variable storage":
+            if "sim_state" in request.POST:
+                sim_state = int(request.POST["sim_state"])
+            if "control_id" in request.POST:
+                control_id = request.POST["control_id"]
+            if "sim_id" in request.POST:
+                sim_id = int(request.POST["sim_id"])
+                if sim_id>0:
+                    sim_para_model = SimulationCase.objects.get(id=sim_id)
+                    config_control_file = sim_para_model.controlfile_set.get(id=control_id)
+
+                    control_component_list = generating_control_comp_list(\
+                                    sim_para_model, config_control_file, 5)
+
+                    return render(request,
+                        "config_control_files.html",
+                        {'sim_id' : sim_id,
+                        'sim_state' : sim_state,
+                        'control_id' : control_id,
+                        'control_component_list' : control_component_list})
+
+        elif "save_input" in request.POST and \
+                request.POST["save_input"]=="Save input":
+            if "sim_state" in request.POST:
+                sim_state = int(request.POST["sim_state"])
+            if "control_id" in request.POST:
+                control_id = request.POST["control_id"]
+            if "sim_id" in request.POST:
+                sim_id = int(request.POST["sim_id"])
+                if sim_id>0:
+                    sim_para_model = SimulationCase.objects.get(id=sim_id)
+                    config_control_file = sim_para_model.controlfile_set.get(id=control_id)
+
+                    received_input_form = models.ControlInputsForm(request.POST)
+                    if received_input_form.is_valid():
+                        received_input_data = received_input_form.cleaned_data
+                        new_control_input = models.ControlInputs()
+                        new_control_input.input_variable_name = \
+                                received_input_data["input_variable_name"]
+                        if "input_source" in request.POST:
+                            new_control_input.input_source = request.POST["input_source"]
+                        new_control_input.control_file = config_control_file
+                        new_control_input.save()
+                        config_control_file.save()
+                        sim_para_model.save()
+
+                    try:
+                        meter_list = sim_para_model.metercomponents_set.all()
+                    except:
+                        meter_list = []
+
+                    meter_name_list = []
+                    for meter_item in meter_list:
+                        meter_name_list.append(meter_item)
+
+                    control_component_list = generating_control_comp_list(\
+                                    sim_para_model, config_control_file, 0)
+
+                    return render(request,
+                        "config_control_files.html",
+                        {'sim_id' : sim_id,
+                        'sim_state' : sim_state,
+                        'control_id' : control_id,
+                        'control_component_list' : control_component_list,
+                        'meter_list' : meter_name_list})
+
+        elif "save_output" in request.POST and \
+                request.POST["save_output"]=="Save output":
+            if "sim_state" in request.POST:
+                sim_state = int(request.POST["sim_state"])
+            if "control_id" in request.POST:
+                control_id = request.POST["control_id"]
+            if "sim_id" in request.POST:
+                sim_id = int(request.POST["sim_id"])
+                if sim_id>0:
+                    sim_para_model = SimulationCase.objects.get(id=sim_id)
+                    config_control_file = sim_para_model.controlfile_set.get(id=control_id)
+
+                    received_output_form = models.ControlOutputsForm(request.POST)
+                    if received_output_form.is_valid():
+                        received_output_data = received_output_form.cleaned_data
+                        new_control_output = models.ControlOutputs()
+                        new_control_output.output_variable_name = \
+                                received_output_data["output_variable_name"]
+                        new_control_output.output_initial_value = \
+                                received_output_data["output_initial_value"]
+                        if "output_target" in request.POST:
+                            new_control_output.output_target = request.POST["output_target"]
+                        new_control_output.control_file = config_control_file
+                        new_control_output.save()
+                        config_control_file.save()
+                        sim_para_model.save()
+
+                    try:
+                        meter_list = sim_para_model.metercomponents_set.all()
+                    except:
+                        meter_list = []
+
+                    meter_name_list = []
+                    for meter_item in meter_list:
+                        meter_name_list.append(meter_item)
+
+                    control_component_list = generating_control_comp_list(\
+                                    sim_para_model, config_control_file, 0)
+
+                    return render(request,
+                        "config_control_files.html",
+                        {'sim_id' : sim_id,
+                        'sim_state' : sim_state,
+                        'control_id' : control_id,
+                        'control_component_list' : control_component_list,
+                        'meter_list' : meter_name_list})
+
+        elif "save_staticvar" in request.POST and \
+                request.POST["save_staticvar"]=="Save static variable":
+            if "sim_state" in request.POST:
+                sim_state = int(request.POST["sim_state"])
+            if "control_id" in request.POST:
+                control_id = request.POST["control_id"]
+            if "sim_id" in request.POST:
+                sim_id = int(request.POST["sim_id"])
+                if sim_id>0:
+                    sim_para_model = SimulationCase.objects.get(id=sim_id)
+                    config_control_file = sim_para_model.controlfile_set.get(id=control_id)
+
+                    received_staticvar_form = models.ControlStaticVariableForm(request.POST)
+                    if received_staticvar_form.is_valid():
+                        received_staticvar_data = received_staticvar_form.cleaned_data
+                        new_control_staticvar = models.ControlStaticVariable()
+                        new_control_staticvar.static_variable_name = \
+                                received_staticvar_data["static_variable_name"]
+                        new_control_staticvar.static_initial_value = \
+                                received_staticvar_data["static_initial_value"]
+                        new_control_staticvar.control_file = config_control_file
+                        new_control_staticvar.save()
+                        config_control_file.save()
+                        sim_para_model.save()
+
+                    try:
+                        meter_list = sim_para_model.metercomponents_set.all()
+                    except:
+                        meter_list = []
+
+                    meter_name_list = []
+                    for meter_item in meter_list:
+                        meter_name_list.append(meter_item)
+
+                    control_component_list = generating_control_comp_list(\
+                                    sim_para_model, config_control_file, 0)
+
+                    return render(request,
+                        "config_control_files.html",
+                        {'sim_id' : sim_id,
+                        'sim_state' : sim_state,
+                        'control_id' : control_id,
+                        'control_component_list' : control_component_list})
+
+        elif "save_timeevent" in request.POST and \
+                request.POST["save_timeevent"]=="Save time event":
+            if "sim_state" in request.POST:
+                sim_state = int(request.POST["sim_state"])
+            if "control_id" in request.POST:
+                control_id = request.POST["control_id"]
+            if "sim_id" in request.POST:
+                sim_id = int(request.POST["sim_id"])
+                if sim_id>0:
+                    sim_para_model = SimulationCase.objects.get(id=sim_id)
+                    config_control_file = sim_para_model.controlfile_set.get(id=control_id)
+
+                    received_timeevent_form = models.ControlTimeEventForm(request.POST)
+                    if received_timeevent_form.is_valid():
+                        received_timeevent_data = received_timeevent_form.cleaned_data
+                        new_control_timeevent = models.ControlTimeEvent()
+                        new_control_timeevent.time_event_name = \
+                                received_timeevent_data["time_event_name"]
+                        new_control_timeevent.initial_time_value = \
+                                received_timeevent_data["initial_time_value"]
+                        new_control_timeevent.control_file = config_control_file
+                        new_control_timeevent.save()
+                        config_control_file.save()
+                        sim_para_model.save()
+
+                    try:
+                        meter_list = sim_para_model.metercomponents_set.all()
+                    except:
+                        meter_list = []
+
+                    meter_name_list = []
+                    for meter_item in meter_list:
+                        meter_name_list.append(meter_item)
+
+                    control_component_list = generating_control_comp_list(\
+                                    sim_para_model, config_control_file, 0)
+
+                    return render(request,
+                        "config_control_files.html",
+                        {'sim_id' : sim_id,
+                        'sim_state' : sim_state,
+                        'control_id' : control_id,
+                        'control_component_list' : control_component_list})
+
+        elif "save_varstore" in request.POST and \
+                request.POST["save_varstore"]=="Save variable storage":
+            if "sim_state" in request.POST:
+                sim_state = int(request.POST["sim_state"])
+            if "control_id" in request.POST:
+                control_id = request.POST["control_id"]
+            if "sim_id" in request.POST:
+                sim_id = int(request.POST["sim_id"])
+                if sim_id>0:
+                    sim_para_model = SimulationCase.objects.get(id=sim_id)
+                    config_control_file = sim_para_model.controlfile_set.get(id=control_id)
+
+                    received_varstore_form = models.ControlVariableStorageForm(request.POST)
+                    if received_varstore_form.is_valid():
+                        received_varstore_data = received_varstore_form.cleaned_data
+                        new_control_varstore = models.ControlVariableStorage()
+                        new_control_varstore.variable_storage_name = \
+                                received_varstore_data["variable_storage_name"]
+                        new_control_varstore.storage_initial_value = \
+                                received_varstore_data["storage_initial_value"]
+                        new_control_varstore.storage_status = \
+                                received_varstore_data["storage_status"]
+                        new_control_varstore.control_file_name = \
+                                config_control_file.control_file_name
+                        new_control_varstore.sim_case = sim_para_model
+                        new_control_varstore.save()
+                        config_control_file.save()
+                        sim_para_model.save()
+
+                    try:
+                        meter_list = sim_para_model.metercomponents_set.all()
+                    except:
+                        meter_list = []
+
+                    meter_name_list = []
+                    for meter_item in meter_list:
+                        meter_name_list.append(meter_item)
+
+                    control_component_list = generating_control_comp_list(\
+                                    sim_para_model, config_control_file, 0)
+
+                    return render(request,
+                        "config_control_files.html",
+                        {'sim_id' : sim_id,
+                        'sim_state' : sim_state,
+                        'control_id' : control_id,
+                        'control_component_list' : control_component_list})
+
         else:
             if "sim_state" in request.POST:
                 sim_state = int(request.POST["sim_state"])
@@ -2498,6 +3213,7 @@ def new_simulation(request):
                 if sim_id>0:
                     sim_para_model = SimulationCase.objects.get(id=sim_id)
                     ckt_file_list = sim_para_model.circuitschematics_set.all()
+
                     ckt_ids_for_removal = []
                     for ckt_file_item in ckt_file_list:
                         ckt_ids_for_removal.append("change_ckt_id"+"_"+str(ckt_file_item.id))
@@ -2529,6 +3245,47 @@ def new_simulation(request):
                                     {'sim_id' : sim_id,
                                     'sim_state' : sim_state,
                                     'ckt_schematic_form' : ckt_schematic_form})
+
+                    try:
+                        control_file_list = sim_para_model.controlfile_set.all()
+                    except:
+                        control_file_list = []
+
+                    control_ids_for_removal = []
+                    for control_file_item in control_file_list:
+                        control_ids_for_removal.append("change_control_id" + \
+                                "_" + str(control_file_item.id))
+
+                    if control_ids_for_removal:
+                        for control_ids in control_ids_for_removal:
+                            if control_ids in request.POST and \
+                                    request.POST[control_ids]=="Remove control":
+                                del_control_id = int(control_ids.split("_")[-1])
+                                del_control = models.ControlFile.objects.get(\
+                                        id=del_control_id)
+                                del_control.delete()
+                                sim_para_model.save()
+
+                                control_file_list = sim_para_model.controlfile_set.all()
+                                control_file_form = []
+                                if control_file_list:
+                                    for control_file_item in control_file_list:
+                                        control_file_form.append([control_file_item, \
+                                                    models.ControlFileForm(\
+                                                    instance=control_file_item)])
+                                else:
+                                    control_file_form.append([[], models.ControlFileForm()])
+
+                                ckt_errors = 0
+                                ckt_error_list = []
+
+                                return render(request,
+                                    "add_control_files.html",
+                                    {'sim_id' : sim_id,
+                                    'sim_state' : sim_state,
+                                    'control_file_form' : control_file_form,
+                                    'ckt_errors' : ckt_errors,
+                                    'ckt_error_list' : ckt_error_list})
 
                     components_found, component_objects, \
                             circuit_analysis_components, ckt_error_list = \
@@ -2680,21 +3437,17 @@ def new_simulation(request):
                                     request.POST[generate_plot_item]=="Plot":
                                 ckt_plot_id = int(generate_plot_item.split("_")[-1])
                                 ckt_plot_item = sim_para_model.circuitplot_set.get(id=ckt_plot_id)
-                                print("Check the plot name")
-                                print(ckt_plot_item)
                                 y_var_indices = []
                                 y_var = []
+                                y_var_labels = []
+                                y_var_scale = []
                                 for waveform_items in ckt_plot_item.circuitwaveforms_set.all():
-                                    print("Check the waveforms")
-                                    print(waveform_items)
-                                    print(waveform_items.waveform.all())
+                                    y_var_labels.append(waveform_items.waveform_legend)
+                                    y_var_scale.append(waveform_items.waveform_scale)
                                     for waveform_plots in waveform_items.waveform.all():
-                                        print(waveform_plots, waveform_plots.line_pos)
                                         y_var_indices.append(waveform_plots.line_pos)
                                         y_var.append([])
-                                print
-                                print
-                                
+
                                 outputfile_path = os.path.join(os.sep, \
                                     sim_para_model.sim_working_directory, \
                                     sim_para_model.sim_output_file)
@@ -2716,11 +3469,11 @@ def new_simulation(request):
                                             
                                         for c1 in range(len(y_var)):
                                             try:
-                                                yvalue = line_output.split()[y_var_indices[c1]]
+                                                yvalue = float(line_output.split()[y_var_indices[c1]])
                                             except:
                                                 pass
                                             else:
-                                                y_var[c1].append(yvalue)
+                                                y_var[c1].append(yvalue*y_var_scale[c1])
                                     
                                     for c1 in range(len(x_var)-1, len(x_var)-5, -1):
                                         del x_var[c1]
@@ -2729,10 +3482,9 @@ def new_simulation(request):
                                         for c2 in range(len(y_var[c1])-1, len(x_var)-1, -1):
                                             del y_var[c1][c2]
                                 
-                                print(len(x_var))
-                                print(len(y_var[0]))
                                 for c1 in range(len(y_var)):
-                                    Matpyplot.plot(x_var, y_var[c1])
+                                    Matpyplot.plot(x_var, y_var[c1], label=y_var_labels[c1])
+                                    Matpyplot.legend()
                                 Matpyplot.show()
                                 
                                 if "sim"+str(sim_para_model.id) in simulation_iteration_collection.keys():
@@ -2757,6 +3509,201 @@ def new_simulation(request):
                                     'plot_id' : -1,
                                     'ckt_error_list' : ckt_error_list,
                                     'plot_form_list' : plot_form_list})
+
+                    delete_plot_list = []
+                    for ckt_plot_items in sim_para_model.circuitplot_set.all():
+                        delete_plot_list.append("delete_plot" + \
+                                "_" + str(ckt_plot_items.id))
+
+                    if delete_plot_list:
+                        for delete_plot_item in delete_plot_list:
+                            if delete_plot_item in request.POST and \
+                                    request.POST[delete_plot_item]=="Delete plot":
+                                ckt_plot_id = int(delete_plot_item.split("_")[-1])
+                                ckt_plot_item = sim_para_model.circuitplot_set.get(id=ckt_plot_id)
+                                ckt_plot_item.delete()
+                                sim_para_model.save()
+
+                                if "sim"+str(sim_para_model.id) in simulation_iteration_collection.keys():
+                                    run_state = 1
+                                else:
+                                    run_state = 0
+
+                                plot_form_list = []
+                                for ckt_plots in sim_para_model.circuitplot_set.all():
+                                    prev_plot_list = []
+                                    for plot_items in ckt_plots.circuitwaveforms_set.all():
+                                        prev_plot_list.append([plot_items, 0])
+                                    plot_form_list.append([[ckt_plots, 0], prev_plot_list, 0])
+                                
+                                ckt_error_list = []
+
+                                return render(request,
+                                    "output_interface.html",
+                                    {'sim_id' : sim_id,
+                                    'sim_state' : sim_state,
+                                    'run_state' : run_state,
+                                    'plot_id' : -1,
+                                    'ckt_error_list' : ckt_error_list,
+                                    'plot_form_list' : plot_form_list})
+
+                    config_control_files = []
+                    for control_file_item in control_file_list:
+                        
+                        config_control_files.append("config_control_id" + \
+                                "_" + str(control_file_item.id))
+
+                    if config_control_files:
+                        for control_ids in config_control_files:
+                            if control_ids in request.POST and \
+                                    request.POST[control_ids]=="Configure control":
+                                config_file_id = int(control_ids.split("_")[-1])
+                                config_control_file = models.ControlFile.objects.get(\
+                                        id=config_file_id)
+
+                                control_component_list = generating_control_comp_list(\
+                                        sim_para_model, config_control_file, 0)
+
+                                return render(request,
+                                    "config_control_files.html",
+                                    {'sim_id' : sim_id,
+                                    'sim_state' : sim_state,
+                                    'control_id' : config_file_id,
+                                    'control_component_list' : control_component_list,})
+
+                    if "control_id" in request.POST:
+                        control_id = int(request.POST["control_id"])
+                        control_file_item = sim_para_model.controlfile_set.get(id=control_id)
+                        
+                        control_inputs_to_delete = []
+                        for input_items in control_file_item.controlinputs_set.all():
+                            control_inputs_to_delete.append("delete_input" + \
+                                    "_" + str(input_items.id))
+
+                        if control_inputs_to_delete:
+                            for control_input_ids in control_inputs_to_delete:
+                                if control_input_ids in request.POST and \
+                                        request.POST[control_input_ids]=="Delete":
+                                    input_id = int(control_input_ids.split("_")[-1])
+                                    input_item = control_file_item.controlinputs_set.get(\
+                                            id=input_id)
+                                    input_item.delete()
+                                    control_file_item.save()
+                                    sim_para_model.save()
+
+                                    control_component_list = generating_control_comp_list(\
+                                                sim_para_model, control_file_item, 0)
+
+                                    return render(request,
+                                        "config_control_files.html",
+                                        {'sim_id' : sim_id,
+                                        'sim_state' : sim_state,
+                                        'control_id' : control_id,
+                                        'control_component_list' : control_component_list,})
+
+                        control_outputs_to_delete = []
+                        for output_items in control_file_item.controloutputs_set.all():
+                            control_outputs_to_delete.append("delete_output" + \
+                                    "_" + str(output_items.id))
+
+                        if control_outputs_to_delete:
+                            for control_output_ids in control_outputs_to_delete:
+                                if control_output_ids in request.POST and \
+                                        request.POST[control_output_ids]=="Delete":
+                                    output_id = int(control_output_ids.split("_")[-1])
+                                    output_item = control_file_item.controloutputs_set.get(\
+                                            id=output_id)
+                                    output_item.delete()
+                                    control_file_item.save()
+                                    sim_para_model.save()
+
+                                    control_component_list = generating_control_comp_list(\
+                                                sim_para_model, control_file_item, 0)
+
+                                    return render(request,
+                                        "config_control_files.html",
+                                        {'sim_id' : sim_id,
+                                        'sim_state' : sim_state,
+                                        'control_id' : control_id,
+                                        'control_component_list' : control_component_list,})
+
+                        control_staticvars_to_delete = []
+                        for staticvar_items in control_file_item.controlstaticvariable_set.all():
+                            control_staticvars_to_delete.append("delete_staticvar" + \
+                                    "_" + str(staticvar_items.id))
+
+                        if control_staticvars_to_delete:
+                            for control_staticvar_ids in control_staticvars_to_delete:
+                                if control_staticvar_ids in request.POST and \
+                                        request.POST[control_staticvar_ids]=="Delete":
+                                    staticvar_id = int(control_staticvar_ids.split("_")[-1])
+                                    staticvar_item = control_file_item.controlstaticvariable_set.\
+                                            get(id=staticvar_id)
+                                    staticvar_item.delete()
+                                    control_file_item.save()
+                                    sim_para_model.save()
+
+                                    control_component_list = generating_control_comp_list(\
+                                                sim_para_model, control_file_item, 0)
+
+                                    return render(request,
+                                        "config_control_files.html",
+                                        {'sim_id' : sim_id,
+                                        'sim_state' : sim_state,
+                                        'control_id' : control_id,
+                                        'control_component_list' : control_component_list,})
+
+                        control_timeevent_to_delete = []
+                        for timeevent_items in control_file_item.controltimeevent_set.all():
+                            control_timeevent_to_delete.append("delete_timeevent" + \
+                                    "_" + str(timeevent_items.id))
+
+                        if control_timeevent_to_delete:
+                            for control_timeevent_ids in control_timeevent_to_delete:
+                                if control_timeevent_ids in request.POST and \
+                                        request.POST[control_timeevent_ids]=="Delete":
+                                    timeevent_id = int(control_timeevent_ids.split("_")[-1])
+                                    timeevent_item = control_file_item.controltimeevent_set.\
+                                            get(id=timeevent_id)
+                                    timeevent_item.delete()
+                                    control_file_item.save()
+                                    sim_para_model.save()
+
+                                    control_component_list = generating_control_comp_list(\
+                                                sim_para_model, control_file_item, 0)
+
+                                    return render(request,
+                                        "config_control_files.html",
+                                        {'sim_id' : sim_id,
+                                        'sim_state' : sim_state,
+                                        'control_id' : control_id,
+                                        'control_component_list' : control_component_list,})
+
+                        control_varstore_to_delete = []
+                        for varstore_items in sim_para_model.controlvariablestorage_set.\
+                                    filter(control_file_name=control_file_item.control_file_name):
+                            control_varstore_to_delete.append("delete_varstore" + \
+                                    "_" + str(varstore_items.id))
+
+                        if control_varstore_to_delete:
+                            for control_varstore_ids in control_varstore_to_delete:
+                                if control_varstore_ids in request.POST and \
+                                        request.POST[control_varstore_ids]=="Delete":
+                                    varstore_id = int(control_varstore_ids.split("_")[-1])
+                                    varstore_item = sim_para_model.controlvariablestorage_set.\
+                                            get(id=varstore_id)
+                                    varstore_item.delete()
+                                    sim_para_model.save()
+
+                                    control_component_list = generating_control_comp_list(\
+                                                sim_para_model, control_file_item, 0)
+
+                                    return render(request,
+                                        "config_control_files.html",
+                                        {'sim_id' : sim_id,
+                                        'sim_state' : sim_state,
+                                        'control_id' : control_id,
+                                        'control_component_list' : control_component_list,})
 
             choosing_simulations = []
             sim_list = SimulationCase.objects.all()

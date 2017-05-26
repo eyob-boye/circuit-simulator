@@ -125,6 +125,34 @@ class CircuitComponents(models.Model):
         return "Component "+self.comp_type+" with name "+self.comp_tag+" at "+self.comp_pos+" in sheet "+self.sheet_name+".csv"
 
 
+class MeterComponents(models.Model):
+    ckt_file_name = models.CharField(max_length=100)
+    comp_pos_3D = models.CharField(max_length=50)
+    comp_tag = models.CharField(max_length=100)
+    comp_type = models.CharField(max_length=25)
+    comp_name = models.CharField(max_length=100)
+    sim_case = models.ForeignKey(SimulationCase)
+
+    def __unicode__(self):
+        return "Meter " + self.comp_type + " with name " + self.comp_tag + \
+                " at " + self.comp_pos_3D + " in sheet " + self.ckt_file_name
+
+
+
+class ControllableComponents(models.Model):
+    ckt_file_name = models.CharField(max_length=100)
+    comp_pos_3D = models.CharField(max_length=50)
+    comp_tag = models.CharField(max_length=100)
+    comp_type = models.CharField(max_length=25)
+    comp_name = models.CharField(max_length=100)
+    control_tag = models.CharField(max_length=100)
+    sim_case = models.ForeignKey(SimulationCase)
+
+    def __unicode__(self):
+        return "Comonent " + self.comp_type + " with name " + self.comp_tag + \
+                " at " + self.comp_pos_3D + " in sheet " + self.ckt_file_name
+
+
 class PlotLines(models.Model):
     line_name = models.CharField(max_length=50, verbose_name="Waveform source")
     line_type = models.CharField(max_length=1,
@@ -176,6 +204,120 @@ class CircuitWaveformsForm(ModelForm):
                 'waveform_scale',)
 
 
+class ControlFile(models.Model):
+    control_file = models.FileField(max_length=300, upload_to='', blank=True)
+    control_file_name = models.CharField(max_length=300)
+    control_file_descrip = models.TextField(blank=True, null=True, verbose_name="Control description")
+    sim_case = models.ForeignKey(SimulationCase)
+
+    def __unicode__(self):
+        return "Control file with name "+self.control_file_name
+
+
+class ControlFileForm(ModelForm):
+    class Meta:
+        model = ControlFile
+        fields = ('control_file', \
+                'control_file_descrip',)
+
+
+class ControlInputs(models.Model):
+    input_source = models.CharField(max_length=100, \
+            verbose_name = "Name of meter")
+    input_variable_name = models.CharField(max_length=100, \
+            verbose_name = "Desired variable name in control code")
+    control_file = models.ForeignKey(ControlFile)
+
+    def __unicode__(self):
+        return "Control input with name " + self.input_variable_name + \
+                " from source " + self.input_source
+
+
+class ControlInputsForm(ModelForm):
+    class Meta:
+        model = ControlInputs
+        fields = ('input_variable_name',)
+
+
+class ControlOutputs(models.Model):
+    output_target = models.CharField(max_length=100, \
+            verbose_name = "Name of controlled component")
+    output_variable_name = models.CharField(max_length=100, \
+            verbose_name = "Desired variable name in control code")
+    output_initial_value = models.FloatField(verbose_name = "Initial value of output")
+    control_file = models.ForeignKey(ControlFile)
+
+    def __unicode__(self):
+        return "Control output with name " + self.output_variable_name + \
+                " to target " + self.output_target
+
+
+class ControlOutputsForm(ModelForm):
+    class Meta:
+        model = ControlOutputs
+        fields = ('output_variable_name',\
+                'output_initial_value',)
+
+
+class ControlStaticVariable(models.Model):
+    static_variable_name = models.CharField(max_length=100, \
+            verbose_name = "Desired variable name in control code")
+    static_initial_value = models.FloatField(default=0.0, \
+            verbose_name = "Initial value of output")
+    control_file = models.ForeignKey(ControlFile)
+
+    def __unicode__(self):
+        return "Static variable with name " + self.static_variable_name
+
+
+class ControlStaticVariableForm(ModelForm):
+    class Meta:
+        model = ControlStaticVariable
+        fields = ('static_variable_name',\
+                'static_initial_value',)
+
+
+class ControlTimeEvent(models.Model):
+    time_event_name = models.CharField(max_length=25, \
+            verbose_name="Name of time event variable")
+    initial_time_value = models.FloatField(verbose_name="Initial time event")
+    control_file = models.ForeignKey(ControlFile)
+
+    def __unicode__(self):
+        return "Time event variable with name " + self.time_event_name
+
+
+class ControlTimeEventForm(ModelForm):
+    class Meta:
+        model = ControlTimeEvent
+        fields = ('time_event_name',\
+                'initial_time_value',)
+
+
+class ControlVariableStorage(models.Model):
+    variable_storage_name = models.CharField(max_length=100, \
+            verbose_name = "Desired variable name in control code")
+    storage_initial_value = models.FloatField(verbose_name = "Initial value of variable")
+    storage_status = models.CharField(max_length=1,
+                                    choices=(("Y", "Yes"),
+                                             ("N", "No")),
+                                    default="N")
+    control_file_name = models.CharField(max_length=100, \
+            verbose_name = "Name of control file")
+    sim_case = models.ForeignKey(SimulationCase)
+
+    def __unicode__(self):
+        return "Variable with name " + self.variable_storage_name
+
+
+class ControlVariableStorageForm(ModelForm):
+    class Meta:
+        model = ControlVariableStorage
+        fields = ('variable_storage_name',\
+                'storage_initial_value',\
+                'storage_status',)
+
+
 class Resistor(models.Model):
     comp_type = models.CharField(max_length=100, default="Resistor", \
             verbose_name="Component type")
@@ -211,7 +353,50 @@ class ResistorForm(ModelForm):
         checkres = self.cleaned_data["comp_resistor"]
         if checkres<0.0:
             raise forms.ValidationError("Resistor has to be a positive number.")
-        
+        return checkres
+
+
+class VariableResistor(models.Model):
+    comp_type = models.CharField(max_length=100, default="VariableResistor", \
+            verbose_name="Component type")
+    comp_number = models.IntegerField()
+    comp_pos_3D = models.CharField(max_length=50, \
+            verbose_name="Component position")
+    comp_pos = models.CharField(max_length=50, \
+            verbose_name="Component position")
+    comp_sheet = models.IntegerField()
+    sheet_name = models.CharField(max_length=200, \
+            verbose_name="Found in circuit schematic")
+    comp_tag = models.CharField(max_length=100, \
+            verbose_name="Component name")
+    comp_ckt = models.ForeignKey(CircuitSchematics)
+    
+    comp_control_tag = models.CharField(max_length=50, \
+            default="Resistance", verbose_name="Control tag")
+    comp_control_value = models.FloatField(default=100.0, \
+            verbose_name="Controlled resistance")
+
+    comp_has_voltage = models.BooleanField(max_length=5, default=False)
+    comp_is_meter = models.BooleanField(max_length=5, default=False)
+    comp_has_control = models.BooleanField(max_length=5, default=True)
+    comp_resistor = models.FloatField(default=100.0, verbose_name="Initial resistor value")
+
+    def __unicode__(self):
+        return "Component "+self.comp_type+" with name "+self.comp_tag+" at "+\
+                self.comp_pos+" in sheet "+self.sheet_name+\
+                ".csv"+" has value "+str(self.comp_resistor)+" Ohms"
+
+
+class VariableResistorForm(ModelForm):
+    class Meta:
+        model = VariableResistor
+        fields = ('comp_control_tag',
+                'comp_resistor',)
+
+    def clean_comp_resistor(self):
+        checkres = self.cleaned_data["comp_resistor"]
+        if checkres<0.0:
+            raise forms.ValidationError("Resistor has to be a positive number.")
         return checkres
 
 
@@ -245,6 +430,50 @@ class InductorForm(ModelForm):
     class Meta:
         model = Inductor
         fields = ('comp_inductor', )
+
+    def clean_comp_inductor(self):
+        checkind = self.cleaned_data["comp_inductor"]
+        if checkind<0.0:
+            raise forms.ValidationError("Inductor has to be a positive number.")
+        return checkind
+
+
+class VariableInductor(models.Model):
+    comp_type = models.CharField(max_length=100, default="VariableInductor", \
+            verbose_name="Component type")
+    comp_number = models.IntegerField()
+    comp_pos_3D = models.CharField(max_length=50, \
+            verbose_name="Component position")
+    comp_pos = models.CharField(max_length=50, \
+            verbose_name="Component position")
+    comp_sheet = models.IntegerField()
+    sheet_name = models.CharField(max_length=200, \
+            verbose_name="Found in circuit schematic")
+    comp_tag = models.CharField(max_length=100, \
+            verbose_name="Component name")
+    comp_ckt = models.ForeignKey(CircuitSchematics)
+    
+    comp_control_tag = models.CharField(max_length=50, \
+            default="Inductance", verbose_name="Control tag")
+    comp_control_value = models.FloatField(default=0.001, \
+            verbose_name="Controlled inductance")
+
+    comp_has_voltage = models.BooleanField(max_length=5, default=False)
+    comp_is_meter = models.BooleanField(max_length=5, default=False)
+    comp_has_control = models.BooleanField(max_length=5, default=True)
+    comp_inductor = models.FloatField(default=0.001, verbose_name="Initial inductor value")
+
+    def __unicode__(self):
+        return "Component "+self.comp_type+" with name "+self.comp_tag+" at "+\
+                self.comp_pos+" in sheet "+self.sheet_name+\
+                ".csv"+" has value "+str(self.comp_inductor)+" Henry"
+
+
+class VariableInductorForm(ModelForm):
+    class Meta:
+        model = VariableInductor
+        fields = ('comp_control_tag',
+                'comp_inductor',)
 
     def clean_comp_inductor(self):
         checkind = self.cleaned_data["comp_inductor"]
@@ -298,7 +527,7 @@ class CapacitorForm(ModelForm):
 
 
 class Voltage_Source(models.Model):
-    comp_type = models.CharField(max_length=100, default="Voltage Source", \
+    comp_type = models.CharField(max_length=100, default="VoltageSource", \
             verbose_name="Component type")
     comp_number = models.IntegerField()
     comp_pos_3D = models.CharField(max_length=50, \
@@ -352,6 +581,49 @@ class Voltage_SourceForm(ModelForm):
         if checkcomp_volt_freq<0.0:
             raise forms.ValidationError("Frequency has to be a positive number.")
         return checkcomp_volt_freq
+
+
+class Controlled_Voltage_Source(models.Model):
+    comp_type = models.CharField(max_length=100, default="ControlledVoltageSource", \
+            verbose_name="Component type")
+    comp_number = models.IntegerField()
+    comp_pos_3D = models.CharField(max_length=50, \
+            verbose_name="Component position")
+    comp_pos = models.CharField(max_length=50, \
+            verbose_name="Component position")
+    comp_sheet = models.IntegerField()
+    sheet_name = models.CharField(max_length=200, \
+            verbose_name="Found in circuit schematic")
+    comp_tag = models.CharField(max_length=100, \
+            verbose_name="Component name")
+    comp_ckt = models.ForeignKey(CircuitSchematics)
+    
+    comp_control_tag = models.CharField(max_length=50, \
+            default="Voltage", verbose_name="Control tag")
+    comp_control_value = models.FloatField(default=0.0, \
+            verbose_name="Controlled Voltage")
+    
+    comp_polarity_3D = models.CharField(max_length=50, \
+            verbose_name="Positive polarity towards")
+    comp_polarity = models.CharField(max_length=50, \
+            verbose_name="Positive polarity towards")
+
+    comp_has_voltage = models.BooleanField(max_length=5, default=True)
+    comp_is_meter = models.BooleanField(max_length=5, default=False)
+    comp_has_control = models.BooleanField(max_length=5, default=True)
+    comp_voltage = models.FloatField(default=0.0, verbose_name="Initial voltage")
+
+    def __unicode__(self):
+        return "Component "+self.comp_type+" with name "+self.comp_tag+" at "+\
+                self.comp_pos+" in sheet "+self.sheet_name+".csv"+\
+                " has peak value "+str(self.comp_volt_peak)+" Volts"
+
+
+class Controlled_Voltage_SourceForm(ModelForm):
+    class Meta:
+        model = Controlled_Voltage_Source
+        fields = ('comp_control_tag', \
+                'comp_control_value',)
 
 
 class Ammeter(models.Model):

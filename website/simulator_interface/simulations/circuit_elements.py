@@ -136,8 +136,6 @@ class Resistor:
         pass
 
     def create_form_values(self, sim_para_model, ckt_file_list, branch_map):
-#        sim_para_model = models.SimulationCase.objects.get(id=sim_id)
-#        ckt_file_list = sim_para_model.circuitschematics_set.all()
         comp_found = False
         for ckt_file_item in ckt_file_list:
             try:
@@ -391,6 +389,117 @@ class Variable_Resistor:
     def create_form_values(self, sim_id, branch_map):
         pass
 
+    def create_form_values(self, sim_para_model, ckt_file_list, branch_map):
+        comp_found = False
+        for ckt_file_item in ckt_file_list:
+            try:
+                check_resistor = ckt_file_item.variableresistor_set.all().\
+                        filter(comp_tag=self.tag)
+            except:
+                comp_found = False
+            else:
+                if check_resistor:
+                    comp_found = True
+                    old_resistor = check_resistor[0]
+                    old_resistor.comp_number = self.number
+                    old_resistor.comp_pos_3D = self.pos_3D
+                    old_resistor.comp_pos = self.pos
+                    old_resistor.comp_sheet = self.sheet
+                    old_resistor.save()
+                    ckt_file_item.save()
+                    break
+
+        if not comp_found:
+            new_resistor = models.VariableResistor()
+            new_resistor.comp_number = self.number
+            new_resistor.comp_pos_3D = self.pos_3D
+            new_resistor.comp_pos = self.pos
+            new_resistor.comp_sheet = self.sheet
+            new_resistor.sheet_name = self.sheet_name.split(".csv")[0]
+            new_resistor.comp_tag = self.tag
+            ckt_file_item = ckt_file_list.filter(ckt_file_name=self.sheet_name)
+            new_resistor.comp_ckt = ckt_file_item[0]
+            new_resistor.save()
+        sim_para_model.save()
+        
+        return
+
+    def list_existing_components(self, ckt_file):
+        try:
+            check_resistor = ckt_file.variableresistor_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            comp_list = []
+        else:
+            if check_resistor and len(check_resistor)==1:
+                comp_list = check_resistor[0]
+            else:
+                comp_list = []
+        return comp_list
+    
+    def comp_as_a_dict(self, ckt_file):
+        try:
+            check_resistor = ckt_file.variableresistor_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            comp_list = []
+        else:
+            if check_resistor and len(check_resistor)==1:
+                comp_list = []
+                comp_list.append(["Component type", check_resistor[0].comp_type])
+                comp_list.append(["Component name", check_resistor[0].comp_tag])
+                comp_list.append(["Component position", check_resistor[0].comp_pos])
+                comp_list.append(["Control name", check_resistor[0].comp_control_tag])
+                comp_list.append(["Initial resistor value", check_resistor[0].comp_resistor])
+            else:
+                comp_list = []
+        return comp_list
+
+    def comp_as_a_form(self, ckt_file):
+        try:
+            check_resistor = ckt_file.variableresistor_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            comp_list = []
+        else:
+            if check_resistor and len(check_resistor)==1:
+                comp_list = models.VariableResistorForm(instance=check_resistor[0])
+                
+            else:
+                comp_list = []
+        return comp_list
+
+    def update_form_data(self, request, comp_model, branch_map):
+        received_form = models.VariableResistorForm(request.POST)
+        if received_form.is_valid():
+            received_data = received_form.cleaned_data
+            comp_model.comp_control_tag = received_data["comp_control_tag"]
+            comp_model.comp_resistor = received_data["comp_resistor"]
+            comp_model.save()
+            form_status = []
+        else:
+            form_status = [received_form, ]
+        return form_status
+
+    def pre_run_check(self, ckt_file_item, branch_map):
+        pass
+
+    def assign_parameters(self, ckt_file_list):
+        for ckt_file_item in ckt_file_list:
+            try:
+                check_resistor = ckt_file_item.variableresistor_set.all().\
+                        filter(comp_tag=self.tag)
+            except:
+                pass
+            else:
+                if check_resistor and len(check_resistor)==1:
+                    comp_model = check_resistor[0]
+                    self.resistor = comp_model.comp_resistor
+                    self.control_tag=[comp_model.comp_control_tag, ]
+                    self.control_values=[comp_model.comp_resistor, ]
+                    self.resistor = comp_model.comp_resistor
+        return
+
 
 class Inductor:
     """
@@ -530,8 +639,6 @@ class Inductor:
         pass
 
     def create_form_values(self, sim_para_model, ckt_file_list, branch_map):
-#        sim_para_model = models.SimulationCase.objects.get(id=sim_id)
-#        ckt_file_list = sim_para_model.circuitschematics_set.all()
         comp_found = False
         for ckt_file_item in ckt_file_list:
             try:
@@ -798,8 +905,112 @@ class Variable_Inductor:
     def determine_state(self, br_currents, sys_branches, sys_events):
         pass
 
-    def create_form_values(self, sim_id, branch_map):
+    def create_form_values(self, sim_para_model, ckt_file_list, branch_map):
+        comp_found = False
+        for ckt_file_item in ckt_file_list:
+            try:
+                check_inductor = ckt_file_item.variableinductor_set.all().\
+                        filter(comp_tag=self.tag)
+            except:
+                comp_found = False
+            else:
+                if check_inductor:
+                    comp_found = True
+                    old_inductor = check_inductor[0]
+                    old_inductor.comp_number = self.number
+                    old_inductor.comp_pos_3D = self.pos_3D
+                    old_inductor.comp_pos = self.pos
+                    old_inductor.comp_sheet = self.sheet
+                    old_inductor.save()
+                    ckt_file_item.save()
+                    break
+
+        if not comp_found:
+            new_inductor = models.VariableInductor()
+            new_inductor.comp_number = self.number
+            new_inductor.comp_pos_3D = self.pos_3D
+            new_inductor.comp_pos = self.pos
+            new_inductor.comp_sheet = self.sheet
+            new_inductor.sheet_name = self.sheet_name.split(".csv")[0]
+            new_inductor.comp_tag = self.tag
+            ckt_file_item = ckt_file_list.filter(ckt_file_name=self.sheet_name)
+            new_inductor.comp_ckt = ckt_file_item[0]
+            new_inductor.save()
+        sim_para_model.save()
+
+    def list_existing_components(self, ckt_file):
+        try:
+            check_inductor = ckt_file.variableinductor_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            comp_list = []
+        else:
+            if check_inductor and len(check_inductor)==1:
+                comp_list = check_inductor[0]
+            else:
+                comp_list = []
+        return comp_list
+
+    def comp_as_a_dict(self, ckt_file):
+        try:
+            check_inductor = ckt_file.variableinductor_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            comp_list = []
+        else:
+            if check_inductor and len(check_inductor)==1:
+                comp_list = []
+                comp_list.append(["Component type", check_inductor[0].comp_type])
+                comp_list.append(["Component name", check_inductor[0].comp_tag])
+                comp_list.append(["Component position", check_inductor[0].comp_pos])
+                comp_list.append(["Control name", check_inductor[0].comp_control_tag])
+                comp_list.append(["Initial inductor value", check_inductor[0].comp_inductor])
+            else:
+                comp_list = []
+        return comp_list
+
+    def comp_as_a_form(self, ckt_file):
+        try:
+            check_inductor = ckt_file.variableinductor_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            comp_list = []
+        else:
+            if check_inductor and len(check_inductor)==1:
+                comp_list = models.VariableInductorForm(instance=check_inductor[0])
+            else:
+                comp_list = []
+        return comp_list
+
+    def update_form_data(self, request, comp_model, branch_map):
+        received_form = models.VariableInductorForm(request.POST)
+        if received_form.is_valid():
+            received_data = received_form.cleaned_data
+            comp_model.comp_control_tag = received_data["comp_control_tag"]
+            comp_model.comp_inductor = received_data["comp_inductor"]
+            comp_model.save()
+            form_status = []
+        else:
+            form_status = [received_form, ]
+        return form_status
+
+    def pre_run_check(self, ckt_file_item, branch_map):
         pass
+
+    def assign_parameters(self, ckt_file_list):
+        for ckt_file_item in ckt_file_list:
+            try:
+                check_inductor = ckt_file_item.variableinductor_set.all().\
+                        filter(comp_tag=self.tag)
+            except:
+                pass
+            else:
+                if check_inductor and len(check_inductor)==1:
+                    comp_model = check_inductor[0]
+                    self.inductor = comp_model.comp_inductor
+                    self.control_tag=[comp_model.comp_control_tag,]
+                    self.control_values=[comp_model.comp_inductor,]
+        return
 
 
 class Capacitor:

@@ -86,11 +86,18 @@
 				{% endif %}
 			{% endif %}
 			</td>
-			<td>
+			<td style="text-align:left; padding:25px">
 				{% if plot_items.2 == 0 %}
 					<br>
 					<input type="submit" name="generate_plot_{{ plot_items.0.0.id }}" 
 					value="Plot"><br>
+				{% endif %}
+			</td>
+			<td style="text-align:left; padding:25px">
+				{% if plot_items.2 == 0 %}
+					<br>
+					<input type="submit" name="delete_plot_{{ plot_items.0.0.id }}" 
+					value="Delete plot"><br>
 				{% endif %}
 			</td>
 			</tr>
