@@ -1,3 +1,4 @@
+import sys
 from django.shortcuts import render
 from django.http import HttpResponse
 from django.forms.models import model_to_dict
@@ -9,12 +10,12 @@ import circuit_elements as CktElem
 import solver as Slv
 import matrix
 import multiprocessing
-#import matplotlib
-#matplotlib.use('Agg')
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as Matpyplot
 
 
-def prepare_simulation_objects(sim_components, ckt_topo, conn_ckt_mat):
+def prepare_simulation_objects(sim_para_model, sim_components, ckt_topo, conn_ckt_mat):
     
     synthesized_ckt_comps = {}
     
@@ -280,13 +281,35 @@ def prepare_simulation_objects(sim_components, ckt_topo, conn_ckt_mat):
 #            control_file_variablestorage,  control_file_events = \
 #            NwRdr.update_control_code(component_objects, components_found, \
 #                                      controlled_elements, meter_list, control_files)
-#
-#    import __control
-#
-#    plotted_variable_list = []
-#    for c1 in control_file_variablestorage.keys():
-#        if control_file_variablestorage[c1][1]=="yes":
-#            plotted_variable_list.append(c1)
+
+    control_files, control_functions, control_file_inputs, \
+            control_file_outputs, control_file_staticvars, control_file_timeevents, \
+            control_file_variablestorage, control_file_events = \
+            NwRdr.update_control_django(sim_para_model, component_objects, components_found, \
+                                      controlled_elements, meter_list)
+
+    synthesized_ckt_comps["control_files"] = control_files
+    synthesized_ckt_comps["control_functions"] = control_functions
+    synthesized_ckt_comps["control_file_inputs"] = control_file_inputs
+    synthesized_ckt_comps["control_file_outputs"] = control_file_outputs
+    synthesized_ckt_comps["control_file_staticvars"] = control_file_staticvars
+    synthesized_ckt_comps["control_file_timeevents"] = control_file_timeevents
+    synthesized_ckt_comps["control_file_variablestorage"] = control_file_variablestorage
+    synthesized_ckt_comps["control_file_events"] = control_file_events
+
+    plotted_variable_list = []
+    for c1 in control_file_variablestorage.keys():
+        if control_file_variablestorage[c1][1].lower()=="yes" or \
+                control_file_variablestorage[c1][1].lower()=="y":
+            plotted_variable_list.append(c1)
+
+    print(control_file_variablestorage)
+    print
+    print
+    print(plotted_variable_list)
+    print
+    print
+    synthesized_ckt_comps["plotted_variable_list"] = plotted_variable_list
 
     return synthesized_ckt_comps
 
@@ -294,10 +317,6 @@ def prepare_simulation_objects(sim_components, ckt_topo, conn_ckt_mat):
 
 def simulation_iterations(sim_id, synthesized_ckt_comps):
     sim_para_model = SimulationCase.objects.get(id=int(sim_id))
-    outputfile_path = os.path.join(os.sep, \
-                sim_para_model.sim_working_directory, \
-                "check_threading.txt")
-#    outputfile = open(outputfile_path, "w")
     t = 0.0
     t_ode = 0.0
     dt = sim_para_model.sim_time_step
@@ -323,8 +342,6 @@ def simulation_iterations(sim_id, synthesized_ckt_comps):
                                         
             file_object = open(file_path, "w")
             outputfile.append(file_object)
-
-    print(outputfile)
     
     t_split_file = []
     t_window = t_limit/sim_para_model.sim_div_number
@@ -333,6 +350,9 @@ def simulation_iterations(sim_id, synthesized_ckt_comps):
         t_split_file.append(t_window_start)
         t_window_start += t_window
     t_split_file.append(t_window_start)
+
+    sys.path.insert(0, sim_para_model.sim_working_directory)
+    import __control
 
     branch_events = synthesized_ckt_comps["branch_events"]
     branch_params = synthesized_ckt_comps["branch_params"]
@@ -379,6 +399,24 @@ def simulation_iterations(sim_id, synthesized_ckt_comps):
     ode_var = synthesized_ckt_comps["ode_var"]
     system_size = synthesized_ckt_comps["system_size"]
     meter_list = synthesized_ckt_comps["meter_list"]
+
+    plotted_variable_list = synthesized_ckt_comps["plotted_variable_list"]
+    control_files = synthesized_ckt_comps["control_files"]
+    control_files = synthesized_ckt_comps["control_files"]
+    control_functions = synthesized_ckt_comps["control_functions"]
+    control_file_inputs = synthesized_ckt_comps["control_file_inputs"]
+    control_file_outputs = synthesized_ckt_comps["control_file_outputs"]
+    control_file_staticvars = synthesized_ckt_comps["control_file_staticvars"]
+    control_file_timeevents = synthesized_ckt_comps["control_file_timeevents"]
+    control_file_variablestorage = synthesized_ckt_comps["control_file_variablestorage"]
+    control_file_events = synthesized_ckt_comps["control_file_events"]
+#    control_files, control_functions, control_file_inputs, \
+#            control_file_outputs, control_file_staticvars, \
+#            control_file_timeevents, control_file_variablestorage, control_file_events
+
+#    control_file_inputs, control_file_outputs, control_file_staticvars, control_file_timeevents, \
+#                            control_file_variablestorage, control_file_events, component_objects
+
 
     while t<t_limit:
 
@@ -1358,32 +1396,33 @@ def simulation_iterations(sim_id, synthesized_ckt_comps):
             for c1 in range(len(meter_list)):
                 outputfile[t_index-1].write("%s " %component_objects[meter_list[c1]].op_value,)
     
-    
-#            if plotted_variable_list:
-#                for c1 in plotted_variable_list:
-#                    if control_file_variablestorage[c1][1]=="yes":
-#                        f[t_index-1].write("%s " %control_file_variablestorage[c1][0],)
+
+            if plotted_variable_list:
+                for c1 in plotted_variable_list:
+                    if control_file_variablestorage[c1][1].lower()=="yes" or \
+                            control_file_variablestorage[c1][1].lower()=="y":
+                        outputfile[t_index-1].write("%s " %control_file_variablestorage[c1][0],)
     
             outputfile[t_index-1].write("\n")
     
-            t_store = t_store+dt_store
+            t_store = t_store + dt_store
 
     
         # This time vector will contain all the future time events
         # generated by the control functions and the main ODE solver
         time_vector = [t_ode]
     
-#        # Call the control codes only if controlled elements exist.
-#        #if controlled_elements:
-#        if control_files:
-#            # Call the control functions in the main control programs.
-#            # Use the eval function to call the functions as string arguments
-#            for c1 in range(len(control_files)):
-#                eval("__control.%s(control_file_inputs, control_file_outputs, control_file_staticvars, control_file_timeevents, \
-#                            control_file_variablestorage, control_file_events, component_objects, c1, t, time_vector)" %control_functions[c1])
-#
-#            if 1 in control_file_events:
-#                time_event = "yes"
+        # Call the control codes only if controlled elements exist.
+        #if controlled_elements:
+        if control_files:
+            # Call the control functions in the main control programs.
+            # Use the eval function to call the functions as string arguments
+            for c1 in range(len(control_files)):
+                eval("__control.%s(control_file_inputs, control_file_outputs, control_file_staticvars, control_file_timeevents, \
+                            control_file_variablestorage, control_file_events, component_objects, c1, t, time_vector)" %control_functions[c1])
+
+            if 1 in control_file_events:
+                time_event = "yes"
 
 
         # The soonest event will be the next time instant.
@@ -2400,7 +2439,8 @@ def new_simulation(request):
                                 ckt_error_list.extend(comp_error)
 
                     if not ckt_error_list:
-                        synthesized_ckt_comps = prepare_simulation_objects(sim_components, \
+                        synthesized_ckt_comps = prepare_simulation_objects(sim_para_model, \
+                                    sim_components, \
                                     circuit_analysis_components, \
                                     conn_ckt_mat)
                         meter_list = synthesized_ckt_comps["meter_list"]
@@ -2453,7 +2493,37 @@ def new_simulation(request):
                                 if meter_extra:
                                     meter_circuit_plotlines[c1].delete()
                                     sim_para_model.save()
+
                         
+                        plotted_variable_list = synthesized_ckt_comps["plotted_variable_list"]
+                        for varstore_item in plotted_variable_list:
+                            check_plotline = \
+                                    all_circuit_plotlines.filter(line_type="V").\
+                                    filter(line_name=varstore_item)
+
+                            if check_plotline and len(check_plotline)==1:
+                                old_plotline = check_plotline[0]
+                                old_plotline.line_pos = len(meter_list) + \
+                                        plotted_variable_list.index(varstore_item) + 1
+                                old_plotline.save()
+                                sim_para_model.save()
+                            else:
+                                new_plotline = models.PlotLines()
+                                new_plotline.line_name = varstore_item
+                                new_plotline.line_type = "V"
+                                new_plotline.line_pos = len(meter_list) + \
+                                        plotted_variable_list.index(varstore_item) + 1
+                                new_plotline.sim_case = sim_para_model
+                                new_plotline.save()
+                                sim_para_model.save()
+                        
+                        for check_plots in sim_para_model.plotlines_set.all():
+                            print(check_plots.line_name)
+                            print(check_plots.line_pos)
+                            print(check_plots.line_type)
+                            print
+                            print
+
                         components_in_branch = synthesized_ckt_comps["components_in_branch"]
                         comp_types_with_resistance = ["Resistor", \
                                     "Voltmeter", \
@@ -2679,7 +2749,6 @@ def new_simulation(request):
                     plot_form_list = []
 
                     all_waveforms_sim = sim_para_model.plotlines_set.all()
-
                     if "plot_id" in request.POST:
                         plot_id = int(request.POST["plot_id"])
                         new_circuit_plot = models.CircuitPlot.objects.get(id=plot_id)
@@ -2704,7 +2773,7 @@ def new_simulation(request):
                                 filter(line_type="V").\
                                 filter(line_name=new_plotline)
                             if other_plotline_object and len(other_plotline_object)==1:
-                                new_waveform.waveform = other_plotline_object[0]
+                                new_waveform.waveform.add(other_plotline_object[0])
                     new_waveform.save()
                     new_circuit_plot.save()
                     sim_para_model.save()
@@ -2813,63 +2882,6 @@ def new_simulation(request):
 
                     control_component_list = generating_control_comp_list(\
                                     sim_para_model, config_control_file, 1)
-#                    control_component_list = []
-#                    try:
-#                        control_input_list = \
-#                                config_control_file.controlinputs_set.all()
-#                    except:
-#                        control_input_list = []
-#                    input_component_list = []
-#                    if control_input_list:
-#                        for input_item in control_input_list:
-#                            input_component_list.append([input_item, []])
-#                    input_component_list.append([[], models.ControlInputsForm()])
-#                    control_component_list.append(input_component_list)
-#
-#                    try:
-#                        control_output_list = \
-#                                config_control_file.controloutputs_set.all()
-#                    except:
-#                        control_output_list = []
-#                    output_component_list = []
-#                    if control_output_list:
-#                        for output_item in control_output_list:
-#                            output_component_list.append([output_item, []])
-#                    control_component_list.append(output_component_list)
-#
-#                    try:
-#                        control_staticvar_list = \
-#                                config_control_file.controlstaticvariable_set.all()
-#                    except:
-#                        control_staticvar_list = []
-#                    staticvar_component_list = []
-#                    if control_staticvar_list:
-#                        for staticvar_item in control_staticvar_list:
-#                            staticvar_component_list.append([staticvar_item, []])
-#                    control_component_list.append(staticvar_component_list)
-#
-#                    try:
-#                        control_timeevent_list = \
-#                                config_control_file.controltimeevent_set.all()
-#                    except:
-#                        control_timeevent_list = []
-#                    timeevent_component_list = []
-#                    if control_timeevent_list:
-#                        for timeevent_item in control_timeevent_list:
-#                            timeevent_component_list.append([timeevent_item, []])
-#                    control_component_list.append(timeevent_component_list)
-#
-#                    try:
-#                        control_varstore_list = \
-#                                sim_para_model.controlvariablestorage_set.all().\
-#                                filter(control_file_name=config_control_file.control_file_name)
-#                    except:
-#                        control_varstore_list = []
-#                    varstore_component_list = []
-#                    if control_varstore_list:
-#                        for varstore_item in control_varstore_list:
-#                            varstore_component_list.append([varstore_item, []])
-#                    control_component_list.append(control_varstore_list)
 
                     return render(request,
                         "config_control_files.html",
@@ -3475,17 +3487,32 @@ def new_simulation(request):
                                             else:
                                                 y_var[c1].append(yvalue*y_var_scale[c1])
                                     
-                                    for c1 in range(len(x_var)-1, len(x_var)-5, -1):
+                                    for c1 in range(len(x_var)-1, len(x_var)-15, -1):
                                         del x_var[c1]
                                     
                                     for c1 in range(len(y_var)):
                                         for c2 in range(len(y_var[c1])-1, len(x_var)-1, -1):
                                             del y_var[c1][c2]
                                 
+                                figoutputname = ""
+                                for c1 in ckt_plot_item.plot_title.split():
+                                    figoutputname += c1
+                                figoutputname += ".png"
+                                
+                                figfile_path = os.path.join(os.sep, \
+                                    sim_para_model.sim_working_directory, \
+                                    figoutputname)
+                                try:
+                                    os.remove(figfile_path)
+                                except:
+                                    pass
+
                                 for c1 in range(len(y_var)):
                                     Matpyplot.plot(x_var, y_var[c1], label=y_var_labels[c1])
                                     Matpyplot.legend()
-                                Matpyplot.show()
+                                Matpyplot.savefig(figfile_path)
+                                Matpyplot.close()
+#                                Matpyplot.show()
                                 
                                 if "sim"+str(sim_para_model.id) in simulation_iteration_collection.keys():
                                     run_state = 1

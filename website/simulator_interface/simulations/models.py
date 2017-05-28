@@ -729,8 +729,8 @@ class Diode(models.Model):
     comp_volt_level = models.FloatField(default=120.0, \
             verbose_name="Rated voltage level")
 
-    comp_has_voltage = models.BooleanField(max_length=5, default=False)
-    comp_is_meter = models.BooleanField(max_length=5, default=True)
+    comp_has_voltage = models.BooleanField(max_length=5, default=True)
+    comp_is_meter = models.BooleanField(max_length=5, default=False)
     comp_has_control = models.BooleanField(max_length=5, default=False)
 
     def __unicode__(self):
@@ -743,6 +743,57 @@ class DiodeForm(ModelForm):
         model = Diode
         fields = ('comp_volt_level', \
                 'comp_polarity')
+
+    def clean_comp_volt_level(self):
+        checkcomp_volt_level = self.cleaned_data["comp_volt_level"]
+        if checkcomp_volt_level<0.0:
+            raise forms.ValidationError("Voltage level has to be a positive number.")
+        return checkcomp_volt_level
+
+
+class Switch(models.Model):
+    comp_type = models.CharField(max_length=100, default="Switch", \
+            verbose_name="Component type")
+    comp_number = models.IntegerField()
+    comp_pos_3D = models.CharField(max_length=50, \
+            verbose_name="Component position")
+    comp_pos = models.CharField(max_length=50, \
+            verbose_name="Component position")
+    comp_sheet = models.IntegerField()
+    sheet_name = models.CharField(max_length=200, \
+            verbose_name="Found in circuit schematic")
+    comp_tag = models.CharField(max_length=100, \
+            verbose_name="Component name")
+    comp_ckt = models.ForeignKey(CircuitSchematics)
+    
+    comp_polarity_3D = models.CharField(max_length=50, \
+            verbose_name="Negative polarity towards")
+    comp_polarity = models.CharField(max_length=50, \
+            verbose_name="Negative polarity towards")
+
+    comp_control_tag = models.CharField(max_length=50, \
+            default="Gate", verbose_name="Control tag")
+    comp_control_value = models.FloatField(default=0.0, \
+            verbose_name="Gate signal")
+    
+    comp_volt_level = models.FloatField(default=120.0, \
+            verbose_name="Rated voltage level")
+
+    comp_has_voltage = models.BooleanField(max_length=5, default=True)
+    comp_is_meter = models.BooleanField(max_length=5, default=False)
+    comp_has_control = models.BooleanField(max_length=5, default=True)
+
+    def __unicode__(self):
+        return "Component "+self.comp_type+" with name "+self.comp_tag+" at "+\
+                self.comp_pos+" in sheet "+self.sheet_name+".csv"
+
+
+class SwitchForm(ModelForm):
+    class Meta:
+        model = Switch
+        fields = ('comp_volt_level', \
+                'comp_polarity', \
+                'comp_control_tag',)
 
     def clean_comp_volt_level(self):
         checkcomp_volt_level = self.cleaned_data["comp_volt_level"]
