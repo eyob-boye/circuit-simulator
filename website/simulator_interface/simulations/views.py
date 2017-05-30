@@ -4112,3 +4112,18 @@ def simulation_library(request):
     return render(request,
                 "list_simulation.html",
                 {'simulation_collection' : simulation_collection, })
+
+
+def doc_ppe(request):
+    """
+    This function renders the documentation page.
+    """
+    return render(request, "documentation.html")
+
+
+def contact_ppe(request):
+    """
+    This function renders the contact page.
+    """
+    return render(request, "contact.html")
+

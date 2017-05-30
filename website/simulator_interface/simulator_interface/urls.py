@@ -22,4 +22,6 @@ urlpatterns = [
     url(r'^$', views.index, name='homepage'),
     url(r'^new-simulation/$', views.new_simulation, name='new-simulation'),
     url(r'^simulation-library/$', views.simulation_library, name='simulation-library'),
+    url(r'^documentation/$', views.doc_ppe, name='ppe-docs'),
+    url(r'^contact/$', views.contact_ppe, name='ppe-contact'),
 ]

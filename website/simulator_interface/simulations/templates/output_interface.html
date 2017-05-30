@@ -22,6 +22,7 @@
 			{% endfor %}
 			</ol>
 		{% else %}
+			<p>Read the instructions below for more information.</p>
 			{% if run_state == 0 %}
 				<p>The simulation is ready, click on the Run button to start it.</p>
 			{% endif %}
@@ -125,5 +126,50 @@
 		<input type="hidden" name="plot_id" value="{{ plot_id }}">
 		{% csrf_token %}
 		</form>
+		<br><br>
+		<h1>Instructions</h1>
+		<ol>
+		<li>If there are no errors in the circuit files, a "Run" button will appear which
+		means that you can run the simulation.</li>
+		<li>Once you a run a simulation, it will remain in the run state until you stop
+		it or close the server. So you can go to another page, browse through circuit lists
+		and data and the simulation will keep running. Also, when the simulation is done,
+		the simulation will remain in the run state. You need to stop the simulation to be
+		able to restart it.</li>
+		<li>If this is a new simulation, there will be no circuit plots. Circuit plots
+		are saved to the database and are associated with a simulation case.</li>
+		<li>For a new simulation, you must run the simulation to be able to add plots.
+		For an existing simulation, it is recommended to run the simulation to register
+		any updates in the circuit for adding to the plots.</li>
+		<li>To add a plot, click on the "Add plot" button.</li>
+		<li>A circuit plot needs to be given a title. The title is important as when a plot
+		is requested, the waveforms are saved in a PNG file having a name same as the title
+		but without spaces.</li>
+		<li>After choosing the title, click on "Start plot". This will now allow you to
+		add waveforms.</li>
+		<li>To add a waveform, click on the "Add waveform" button. This will display a form
+		with the waveform legend which is what will appear on the waveform, the scale which
+		is used to magnify or attenuate a waveform and the source of the waveform which
+		is a drop down list. This list contains all the meters and variable storage elements
+		in the simulation.</li>
+		<li>Do not forget to click on the "Save waveform" button after entering data.</li>
+		<li>You can have multiple waveforms in a plot with different scales to compare
+		different quantities.</li>
+		<li>Once done adding all the waveforms, click on "Save plot" button to save the
+		plot. The plot will now appear in a list with a "Plot" button and a "Delete"
+		button next to it.</li>
+		<li>Add as many plots as needed. There is no provision to edit a plot. Delete
+		an existing plot and add a new one.</li>
+		<li>The time range specified above can be used to generate a zoomed in plot.
+		If an invalid time range is specified, the entire data file is plotted and no
+		error will be generated.</li>
+		<li>When the "Plot" button is clicked, a PNG file with the waveform will be
+		stored in the working directory. The name of the file will be the same as the title
+		but without spaces. For example, "Plot 1" will be Plot1.png. "Current vs Voltage"
+		will be CurrentvsVoltage.png.</li>
+		<li>You can click on the "Plot" button as many times while the simulation runs.
+		The old PNG file will be deleted and a new file will be written to.</li>
+		</ol>
+		<br><br>
 	{% endblock %}
 </body>

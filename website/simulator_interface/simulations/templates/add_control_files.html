@@ -13,8 +13,8 @@
 		<form action="" method="post">
 		
 		{% if control_file_form %}
-			<p>Browse your computer and upload the control (.py) files. All the files must be in the same directory 
-			as the working directory above.</p>
+			<p>Browse your computer and upload the control (.py) files. Read the instructions
+			below for more information.</p>
 			<table>
 				{% for control_item in control_file_form %}
 					<tr>
@@ -81,22 +81,29 @@
 		{% endif %}
 		<input type="hidden" name="sim_id" value="{{ sim_id }}">
 		<input type="hidden" name="sim_state" value="{{ sim_state }}">
-		{% if ckt_error_list %}
-			<br><br>
-			<p>There are the following errors in the circuits above. You must resolve these errors and click on the 
-			"Process circuit schematics" button above to check for errors again:</p>
-			<ol>
-				{% for ckt_error_item in ckt_error_list %}
-					<li>{{ ckt_error_item }}</li>
-				{% endfor %}
-			</ol>
-		{% else %}
-			{% if ckt_errors == 0 %}
-				<p>The circuits do not have any detectable errors. You can continue to enter the 
-				parameters by clicking on the "Back to main page" button.</p>
-			{% endif %}
-		{% endif %}
 		{% csrf_token %}
 		</form>
+		<br><br>
+		<h1>Instructions</h1>
+		<ol>
+		<li>All control files must be in the same working directory as that specified
+		in the "Edit simulation parameters" page.</li>
+		<li>All control files must be Python 2 .py files.</li>
+		<li>After using the "Browse" button to add a control file, do not forget to click
+		"Save control file" button to save the control file to the data base.</li>
+		<li>Once a control file is saved, it appears in a list of control files along
+		with a "Configure control" button next to it.</li>
+		<li>Click on the "Configure control" button to design the interface for the control
+		file - the inputs, outputs and other special variables.</li>
+		<li>There is no provision to edit a control file. If you want to make changes,
+		delete the existing file and add a new one.</li>
+		<li>For a new control file, you must configure the control file because it will
+		have no input/output ports which makes it useless. For existing control files,
+		it is recommended to browse through a control file's configuration before running
+		the simulation.</li>
+		<li>Once done with all editing, click on the "Back to main page" button to
+		continue.</li>
+		</ol>
+		<br><br>
 	{% endblock %}
 </body>

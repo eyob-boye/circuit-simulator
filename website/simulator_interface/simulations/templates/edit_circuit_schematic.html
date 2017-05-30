@@ -13,8 +13,9 @@
 		<form action="" method="post">
 		
 		{% if ckt_schematic_form %}
-			<p>Browse your computer and upload the circuit schematic spreadsheets (.csv) files. All the schematics must be in the same directory 
-			as the working directory above.</p>
+			<p>Browse your computer and upload the circuit schematic spreadsheets (.csv) files. 
+			Read the instructions below. NOTE: If you change any circuits, click on "Process
+			circuit schematics" button so that the simulator checks for errors.</p>
 			<table>
 				{% for sim_item in ckt_schematic_form %}
 					<tr>
@@ -98,5 +99,34 @@
 		{% endif %}
 		{% csrf_token %}
 		</form>
+		<h1>Instructions</h1>
+		<ol>
+		<li>All the circuit spreadsheet files have to be in the same directory which is the
+		"Directory with simulation files" specified in the "Edit Simulation Parameters"
+		page. It is an error to add a circuit which is not in the directory.</li>
+		<li>Use the browse button to add circuit spreadsheet files. After adding the file,
+		do not forget to click on the "Save circuit file" button. On clicking the save
+		button, the file should be listed out. If there is a problem, an error will be
+		displayed along with the form.</li>
+		<li>Click on "Add circuit file" button to add another file in which case it
+		will display another circuit form with a browse button. There can be and it is
+		recommended to have multiple files in a simulation for clarity.</li>
+		<li>The circuit spreadsheets have to be .csv files.</li>
+		<li>Once a circuit appears in the list, it has been added to the database. Unless
+		you choose to delete it, it will be associated with the simulation.</li>
+		<li>If there is an empty form and you wish to proceed, don't worry about the empty
+		file form. Until the same button is clicked, nothing gets added to the database.</li>
+		<li>There is no provision to edit a circuit file. If you make a mistake, delete the
+		file by clicking the "Remove circuit" button and click on "Add circuit" button to
+		add another file.</li>
+		<li>Last but most important. After uploading circuit files, click on the "Process
+		circuit schematics" button. The simulator checks for errors and will display the errors.
+		At the same time the simulator populates the database if no errors are found with
+		details of circuit components. This helps in the later stages of the simulation.
+		So if any changes are made to the circuits, do not forget to click on this button.</li>
+		<li>After it has been checked that no errors result from clicking the "Process
+		circuit schematics" button, click on "Back to main page" button to continue.</li>
+		</ol>
+		<br><br>
 	{% endblock %}
 </body>

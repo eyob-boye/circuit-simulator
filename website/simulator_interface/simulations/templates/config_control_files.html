@@ -11,7 +11,7 @@
 	<br><br>
 	{% block main_body_content %}
 		<form action="" method="post">
-		
+		<p>Read the instructions below for information on this page.</p>
 		<h1>Control inputs</h1>
 		{% if control_component_list.0 %}
 			<p>These are the list of control inputs in the control file. Click on the 
@@ -202,5 +202,29 @@
 		<input type="hidden" name="control_id" value="{{ control_id }}">
 		{% csrf_token %}
 		</form>
+		<br><br>
+		<h1>Instructions</h1>
+		<ol>
+		<li>The configuration of the control file is divided into "Control inputs", "Control 
+		outputs", "Static variables", "Time event variables", "Variable storage elements".
+		To know more about these variables, check out the free chapter on control design
+		on my webpage <a href="http://www.pythonpowerelectronics.com/papers/chap4.pdf"
+		>click here</a>.</li>
+		<li>When adding a control input, it provides you with a drop down list of all the meters
+		detected in all the circuits. You can choose one and decide what variable to call it 
+		in the control code. That variable name will have the measured value of the meter
+		automatically.</li>
+		<li>When adding a control output, it provides you with a drop down list of all the
+		controllable components.</li>
+		<li>You must click on the "Add" button for a particular type to create a new
+		form.</li>
+		<li>You must click on the "Save" button to save it to the database.</li>
+		<li>There is no cancel button, so if you don't want to save changes, do not click
+		the "Save" button. Instead click on any other "Add" button to remove the form.</li>
+		<li>There is no provision to edit an entry, delete it and add a new one.</li>
+		<li>Once done editing the parameters, click on "Back to control main" button to
+		continue with the other control files.</li>
+		</ol>
+		<br><br>
 	{% endblock %}
 </body>
