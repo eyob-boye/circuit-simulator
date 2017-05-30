@@ -45,7 +45,11 @@
 		{% endif %}
 
 		<br><br>
-		
+
+		<p>Time range:</p>
+		Start: <input type="text" name="start_time"> <br>
+		Stop: <input type="text" name="stop_time"> <br>
+		<p>If the time range is invalid, the entire data file will be plotted.</p>
 		{% for plot_items in plot_form_list %}
 			<table>
 			<tr>
@@ -103,6 +107,8 @@
 			</tr>
 			</table>
 			<br>
+		{% empty %}
+			<p>No plots to display. Use the "Add plot" button below to create new plots.</p>
 		{% endfor %}
 		
 		

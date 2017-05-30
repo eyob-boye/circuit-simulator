@@ -5,7 +5,8 @@ import math
 import circuit_exceptions as CktEx
 import network_reader as NwRdr
 from django.forms.models import model_to_dict
-from models import SimulationCase, SimulationCaseForm, CircuitSchematics, CircuitSchematicsForm, CircuitComponents
+from models import SimulationCase, SimulationCaseForm, CircuitSchematics
+from models import CircuitSchematicsForm, CircuitComponents
 import models
 
 class Resistor:
@@ -15,7 +16,6 @@ class Resistor:
     update system matrix on each iteration.
     """
 
-    
     def __init__(self, res_index, res_pos, res_tag, nw_input):
         """
         Constructor to initialize value.
@@ -38,7 +38,6 @@ class Resistor:
 
         return
 
-    
     def display(self):
         """
         Displays info about the component.
@@ -53,7 +52,6 @@ class Resistor:
 
         return
 
-    
     def ask_values(self, x_list, ckt_mat, sys_branch):
         """
         Writes the values needed to the spreadsheet.
@@ -66,7 +64,6 @@ class Resistor:
 
         return
 
-    
     def get_values(self, x_list, ckt_mat):
         """
         Takes the parameter from the spreadsheet.
@@ -75,19 +72,16 @@ class Resistor:
 
         return
 
-
     def determine_branch(self, sys_branches):
         """
         Determines which branch the component is found in.
         """
-        
         for c1 in range(len(sys_branches)):
             if NwRdr.csv_tuple(self.pos_3D) in sys_branches[c1]:
                 self.component_branch_pos = c1
         
         return
-    
-    
+
     def transfer_to_sys(self, sys_loops, mat_e, mat_a, mat_b, mat_u, source_list):
         """
         The matrix A in E.dx/dt=Ax+Bu will be updated by the
@@ -108,9 +102,9 @@ class Resistor:
                             mat_a.data[c1][c2] -= self.resistor
                         # Because the matrices are symmetric
                         mat_a.data[c2][c1] = mat_a.data[c1][c2]
+
         return
 
-    
     def transfer_to_branch(self, sys_branch, source_list,  mat_u):
         """
         The value of the resistor is transferred to the branch
@@ -121,40 +115,52 @@ class Resistor:
 
         return
 
-    
     def generate_val(self, source_lst, mat_e, mat_a, mat_b, mat_u, t, dt):
         pass
 
-    
     def update_val(self, sys_loop_map, lbyr_ratio, mat_e, mat_a, mat_b, state_vec, mat_u, sys_branches, sys_events):
         pass
 
     def pre_determine_state(self, br_currents, sys_branches, sys_events):
         pass
-    
+
     def determine_state(self, br_currents, sys_branches, sys_events):
         pass
 
     def create_form_values(self, sim_para_model, ckt_file_list, branch_map):
+        """
+        This function creates a new database entry for a component or
+        updates an existing database entry from the component class data.
+        """
         comp_found = False
-        for ckt_file_item in ckt_file_list:
-            try:
-                check_resistor = ckt_file_item.resistor_set.all().\
-                        filter(comp_tag=self.tag)
-            except:
-                comp_found = False
-            else:
-                if check_resistor:
-                    comp_found = True
-                    old_resistor = check_resistor[0]
-                    old_resistor.comp_number = self.number
-                    old_resistor.comp_pos_3D = self.pos_3D
-                    old_resistor.comp_pos = self.pos
-                    old_resistor.comp_sheet = self.sheet
-                    old_resistor.save()
-                    ckt_file_item.save()
-                    break
+        # Search for the file from component sheet name
+        check_ckt = sim_para_model.circuitschematics_set.\
+                    filter(ckt_file_name=self.sheet_name)
+        try:
+            # Within the file, check if a database entry exists
+            # with the component tag.
+            check_resistor = check_ckt[0].resistor_set.\
+                    filter(comp_tag=self.tag)
+        except:
+            comp_found = False
+        else:
+            if check_resistor and len(check_resistor)==1:
+                comp_found = True
+                old_resistor = check_resistor[0]
+                old_resistor.comp_number = self.number
+                old_resistor.comp_pos_3D = self.pos_3D
+                old_resistor.comp_pos = self.pos
+                old_resistor.comp_sheet = self.sheet
+                old_resistor.save()
+                check_ckt[0].save()
+            # Delete excessive components if any
+            if check_resistor and len(check_resistor)>1:
+                comp_found = True
+                for c1 in range(len(check_resistor)-1, 0, -1):
+                    check_resistor[c1].delete()
+                    check_ckt[0].save()
 
+        # Create a new component if not found.
         if not comp_found:
             new_resistor = models.Resistor()
             new_resistor.comp_number = self.number
@@ -167,11 +173,15 @@ class Resistor:
             new_resistor.comp_ckt = ckt_file_item[0]
             new_resistor.save()
         sim_para_model.save()
-        
+
         return
 
-
     def list_existing_components(self, ckt_file):
+        """
+        Check if the model of the circuit file contains
+        the associated database entry for the component.
+        Returns an empty list if not found.
+        """
         try:
             check_resistor = ckt_file.resistor_set.all().\
                         filter(comp_tag=self.tag)
@@ -183,8 +193,12 @@ class Resistor:
             else:
                 comp_list = []
         return comp_list
-    
+
     def comp_as_a_dict(self, ckt_file):
+        """
+        Returns information about a component as a list
+        that can be displayed in a webpage.
+        """
         try:
             check_resistor = ckt_file.resistor_set.all().\
                         filter(comp_tag=self.tag)
@@ -202,6 +216,9 @@ class Resistor:
         return comp_list
 
     def comp_as_a_form(self, ckt_file):
+        """
+        Returns a populated form for a component.
+        """
         try:
             check_resistor = ckt_file.resistor_set.all().\
                         filter(comp_tag=self.tag)
@@ -216,6 +233,9 @@ class Resistor:
         return comp_list
 
     def update_form_data(self, request, comp_model, branch_map):
+        """
+        Extracts data from a form and saves it to the database.
+        """
         received_form = models.ResistorForm(request.POST)
         if received_form.is_valid():
             received_data = received_form.cleaned_data
@@ -230,6 +250,10 @@ class Resistor:
         pass
 
     def assign_parameters(self, ckt_file_list):
+        """
+        Transfers data from the database to the component clas
+        objects for the simulation.
+        """
         for ckt_file_item in ckt_file_list:
             try:
                 check_resistor = ckt_file_item.resistor_set.all().\
@@ -250,7 +274,6 @@ class Variable_Resistor:
     control input.
     """
 
-    
     def __init__(self, res_index, res_pos, res_tag, nw_input):
         """
         Constructor to initialize value.
@@ -275,7 +298,6 @@ class Variable_Resistor:
         self.component_branch_pos = 0
 
         return
-
     
     def display(self):
         """
@@ -291,7 +313,6 @@ class Variable_Resistor:
 
         return
 
-    
     def ask_values(self, x_list, ckt_mat, sys_branch):
         """
         Writes the values needed to the spreadsheet.
@@ -305,7 +326,6 @@ class Variable_Resistor:
 
         return
 
-    
     def get_values(self, x_list, ckt_mat):
         """ Takes the parameter from the spreadsheet."""
         self.resistor = float(x_list[0].split("=")[1])
@@ -316,22 +336,19 @@ class Variable_Resistor:
 
         while self.control_tag[0][-1] == " ":
             self.control_tag[0] = self.control_tag[0][:-1]
-        
-        return
 
+        return
 
     def determine_branch(self, sys_branches):
         """
         Determines which branch the component is found in.
         """
-        
         for c1 in range(len(sys_branches)):
             if NwRdr.csv_tuple(self.pos_3D) in sys_branches[c1]:
                 self.component_branch_pos = c1
-        
+
         return
-    
-    
+
     def transfer_to_sys(self, sys_loops, mat_e, mat_a, mat_b, mat_u, source_list):
         """
         The matrix A in E.dx/dt=Ax+Bu will be updated by the
@@ -354,7 +371,6 @@ class Variable_Resistor:
                         mat_a.data[c2][c1] = mat_a.data[c1][c2]
         return
 
-    
     def transfer_to_branch(self, sys_branch, source_list,  mat_u):
         """
         The value of the resistor is transferred to the branch
@@ -362,13 +378,11 @@ class Variable_Resistor:
         """
         if NwRdr.csv_tuple(self.pos_3D) in sys_branch:
             sys_branch[-1][0][0] += self.resistor
-        
-        return
 
+        return
     
     def generate_val(self, source_lst, mat_e, mat_a, mat_b, mat_u, t, dt):
         pass
-
     
     def update_val(self, sys_loop_map, lbyr_ratio, mat_e, mat_a, mat_b, state_vec, mat_u, sys_branches, sys_events):
         """
@@ -377,37 +391,43 @@ class Variable_Resistor:
         if not self.control_values[0]==self.resistor:
             sys_events[self.component_branch_pos] = "hard"
             self.resistor = self.control_values[0]
-        
+
         return
 
     def pre_determine_state(self, br_currents, sys_branches, sys_events):
         pass
-    
+
     def determine_state(self, br_currents, sys_branches, sys_events):
         pass
 
-    def create_form_values(self, sim_id, branch_map):
-        pass
-
     def create_form_values(self, sim_para_model, ckt_file_list, branch_map):
+        """
+        This function creates a new database entry for a component or
+        updates an existing database entry from the component class data.
+        """
         comp_found = False
-        for ckt_file_item in ckt_file_list:
-            try:
-                check_resistor = ckt_file_item.variableresistor_set.all().\
-                        filter(comp_tag=self.tag)
-            except:
-                comp_found = False
-            else:
-                if check_resistor:
-                    comp_found = True
-                    old_resistor = check_resistor[0]
-                    old_resistor.comp_number = self.number
-                    old_resistor.comp_pos_3D = self.pos_3D
-                    old_resistor.comp_pos = self.pos
-                    old_resistor.comp_sheet = self.sheet
-                    old_resistor.save()
-                    ckt_file_item.save()
-                    break
+        check_ckt = sim_para_model.circuitschematics_set.\
+                    filter(ckt_file_name=self.sheet_name)
+        try:
+            check_resistor = check_ckt[0].variableresistor_set.\
+                    filter(comp_tag=self.tag)
+        except:
+            comp_found = False
+        else:
+            if check_resistor and len(check_resistor)==1:
+                comp_found = True
+                old_resistor = check_resistor[0]
+                old_resistor.comp_number = self.number
+                old_resistor.comp_pos_3D = self.pos_3D
+                old_resistor.comp_pos = self.pos
+                old_resistor.comp_sheet = self.sheet
+                old_resistor.save()
+                check_ckt[0].save()
+            if check_resistor and len(check_resistor)>1:
+                comp_found = True
+                for c1 in range(len(check_resistor)-1, 0, -1):
+                    check_resistor[c1].delete()
+                    check_ckt[0].save()
 
         if not comp_found:
             new_resistor = models.VariableResistor()
@@ -421,10 +441,15 @@ class Variable_Resistor:
             new_resistor.comp_ckt = ckt_file_item[0]
             new_resistor.save()
         sim_para_model.save()
-        
+
         return
 
     def list_existing_components(self, ckt_file):
+        """
+        Check if the model of the circuit file contains
+        the associated database entry for the component.
+        Returns an empty list if not found.
+        """
         try:
             check_resistor = ckt_file.variableresistor_set.all().\
                         filter(comp_tag=self.tag)
@@ -436,8 +461,12 @@ class Variable_Resistor:
             else:
                 comp_list = []
         return comp_list
-    
+
     def comp_as_a_dict(self, ckt_file):
+        """
+        Returns information about a component as a list
+        that can be displayed in a webpage.
+        """
         try:
             check_resistor = ckt_file.variableresistor_set.all().\
                         filter(comp_tag=self.tag)
@@ -456,6 +485,9 @@ class Variable_Resistor:
         return comp_list
 
     def comp_as_a_form(self, ckt_file):
+        """
+        Returns a populated form for a component.
+        """
         try:
             check_resistor = ckt_file.variableresistor_set.all().\
                         filter(comp_tag=self.tag)
@@ -470,6 +502,9 @@ class Variable_Resistor:
         return comp_list
 
     def update_form_data(self, request, comp_model, branch_map):
+        """
+        Extracts data from a form and saves it to the database.
+        """
         received_form = models.VariableResistorForm(request.POST)
         if received_form.is_valid():
             received_data = received_form.cleaned_data
@@ -485,6 +520,10 @@ class Variable_Resistor:
         pass
 
     def assign_parameters(self, ckt_file_list):
+        """
+        Transfers data from the database to the component clas
+        objects for the simulation.
+        """
         for ckt_file_item in ckt_file_list:
             try:
                 check_resistor = ckt_file_item.variableresistor_set.all().\
@@ -507,7 +546,7 @@ class Inductor:
     the resistor according to name tag, unique cell position,
     update system matrix on each iteration.
     """
-    
+
     def __init__(self, ind_index, ind_pos, ind_tag, nw_input):
         """
         Constructor to initialize value.
@@ -531,7 +570,6 @@ class Inductor:
 
         return
 
-
     def display(self):
         """
         Displays info about the component.
@@ -546,7 +584,6 @@ class Inductor:
 
         return
 
-    
     def ask_values(self, x_list, ckt_mat, sys_branch):
         """
         Writes the values needed to the spreadsheet.
@@ -577,8 +614,7 @@ class Inductor:
         x_list.append(ind_params)
 
         return
-    
-    
+
     def get_values(self, x_list, ckt_mat):
         """
         Takes the parameter from the spreadsheet.
@@ -587,11 +623,9 @@ class Inductor:
 
         return
 
-
     def determine_branch(self, sys_branches):
         pass
-    
-    
+
     def transfer_to_sys(self, sys_loops, mat_e, mat_a, mat_b, mat_u, source_list):
         """
         The matrix E in E.dx/dt=Ax+Bu will be updated by the
@@ -613,7 +647,6 @@ class Inductor:
                         mat_e.data[c2][c1] = mat_e.data[c1][c2]
         return
 
-    
     def transfer_to_branch(self, sys_branch, source_list,  mat_u):
         """
         The value of the inductor is added to the parameter of the
@@ -624,11 +657,9 @@ class Inductor:
 
         return
 
-    
     def generate_val(self, source_lst, mat_e, mat_a, mat_b, mat_u, t, dt):
         pass
 
-    
     def update_val(self, sys_loop_map, lbyr_ratio, mat_e, mat_a, mat_b, state_vec, mat_u, sys_branches, sys_events):
         pass
 
@@ -639,24 +670,33 @@ class Inductor:
         pass
 
     def create_form_values(self, sim_para_model, ckt_file_list, branch_map):
+        """
+        This function creates a new database entry for a component or
+        updates an existing database entry from the component class data.
+        """
         comp_found = False
-        for ckt_file_item in ckt_file_list:
-            try:
-                check_inductor = ckt_file_item.inductor_set.all().\
-                        filter(comp_tag=self.tag)
-            except:
-                comp_found = False
-            else:
-                if check_inductor:
-                    comp_found = True
-                    old_inductor = check_inductor[0]
-                    old_inductor.comp_number = self.number
-                    old_inductor.comp_pos_3D = self.pos_3D
-                    old_inductor.comp_pos = self.pos
-                    old_inductor.comp_sheet = self.sheet
-                    old_inductor.save()
-                    ckt_file_item.save()
-                    break
+        check_ckt = sim_para_model.circuitschematics_set.\
+                    filter(ckt_file_name=self.sheet_name)
+        try:
+            check_inductor = check_ckt[0].inductor_set.\
+                    filter(comp_tag=self.tag)
+        except:
+            comp_found = False
+        else:
+            if check_inductor and len(check_inductor)==1:
+                comp_found = True
+                old_inductor = check_inductor[0]
+                old_inductor.comp_number = self.number
+                old_inductor.comp_pos_3D = self.pos_3D
+                old_inductor.comp_pos = self.pos
+                old_inductor.comp_sheet = self.sheet
+                old_inductor.save()
+                check_ckt[0].save()
+            if check_inductor and len(check_inductor)>1:
+                comp_found = True
+                for c1 in range(len(check_inductor)-1, 0, -1):
+                    check_inductor[c1].delete()
+                    check_ckt[0].save()
 
         if not comp_found:
             new_inductor = models.Inductor()
@@ -672,6 +712,11 @@ class Inductor:
         sim_para_model.save()
 
     def list_existing_components(self, ckt_file):
+        """
+        Check if the model of the circuit file contains
+        the associated database entry for the component.
+        Returns an empty list if not found.
+        """
         try:
             check_inductor = ckt_file.inductor_set.all().\
                         filter(comp_tag=self.tag)
@@ -685,6 +730,10 @@ class Inductor:
         return comp_list
 
     def comp_as_a_dict(self, ckt_file):
+        """
+        Returns information about a component as a list
+        that can be displayed in a webpage.
+        """
         try:
             check_inductor = ckt_file.inductor_set.all().\
                         filter(comp_tag=self.tag)
@@ -702,6 +751,9 @@ class Inductor:
         return comp_list
 
     def comp_as_a_form(self, ckt_file):
+        """
+        Returns a populated form for a component.
+        """
         try:
             check_inductor = ckt_file.inductor_set.all().\
                         filter(comp_tag=self.tag)
@@ -715,6 +767,9 @@ class Inductor:
         return comp_list
 
     def update_form_data(self, request, comp_model, branch_map):
+        """
+        Extracts data from a form and saves it to the database.
+        """
         received_form = models.InductorForm(request.POST)
         if received_form.is_valid():
             received_data = received_form.cleaned_data
@@ -729,6 +784,10 @@ class Inductor:
         pass
 
     def assign_parameters(self, ckt_file_list):
+        """
+        Transfers data from the database to the component clas
+        objects for the simulation.
+        """
         for ckt_file_item in ckt_file_list:
             try:
                 check_inductor = ckt_file_item.inductor_set.all().\
@@ -774,7 +833,6 @@ class Variable_Inductor:
 
         return
 
-
     def display(self):
         """
         Displays info about the component.
@@ -788,7 +846,6 @@ class Variable_Inductor:
         print self.sheet_name
 
         return
-
     
     def ask_values(self, x_list, ckt_mat, sys_branch):
         """
@@ -804,7 +861,7 @@ class Variable_Inductor:
         # The polarity is for simulator use only. So not added into ind_params.
         # The polarity is in the direction of current
         # Just like an ammeter.
-        self.ind_elem = NwRdr.csv_tuple(self.pos)
+        self.ind_elem = NwRdr.csv_tuple_2D(self.pos)
         if self.ind_elem[0]>0:
             if ckt_mat[self.sheet][self.ind_elem[0]-1][self.ind_elem[1]]:
                 self.polrty = [self.ind_elem[0]-1, self.ind_elem[1]]
@@ -822,7 +879,6 @@ class Variable_Inductor:
 
         return
 
-
     def get_values(self, x_list, ckt_mat):
         """
         Takes the parameter from the spreadsheet.
@@ -835,23 +891,19 @@ class Variable_Inductor:
 
         while self.control_tag[0][-1] == " ":
             self.control_tag[0] = self.control_tag[0][:-1]
-        
+
         return
-
-
 
     def determine_branch(self, sys_branches):
         """
         Determines which branch the component is found in.
         """
-        
         for c1 in range(len(sys_branches)):
             if NwRdr.csv_tuple(self.pos_3D) in sys_branches[c1]:
                 self.component_branch_pos = c1
-        
+
         return
-    
-    
+
     def transfer_to_sys(self, sys_loops, mat_e, mat_a, mat_b, mat_u, source_list):
         """
         The matrix E in E.dx/dt=Ax+Bu will be updated by the
@@ -873,7 +925,6 @@ class Variable_Inductor:
                         mat_e.data[c2][c1] = mat_e.data[c1][c2]
         return
 
-    
     def transfer_to_branch(self, sys_branch, source_list,  mat_u):
         """
         The value of the inductor is added to the parameter of the
@@ -884,11 +935,9 @@ class Variable_Inductor:
 
         return
 
-    
     def generate_val(self, source_lst, mat_e, mat_a, mat_b, mat_u, t, dt):
         pass
 
-    
     def update_val(self, sys_loop_map, lbyr_ratio, mat_e, mat_a, mat_b, state_vec, mat_u, sys_branches, sys_events):
         """
         The control input is pass on as the resistance value.
@@ -901,29 +950,38 @@ class Variable_Inductor:
 
     def pre_determine_state(self, br_currents, sys_branches, sys_events):
         pass
-    
+
     def determine_state(self, br_currents, sys_branches, sys_events):
         pass
 
     def create_form_values(self, sim_para_model, ckt_file_list, branch_map):
+        """
+        This function creates a new database entry for a component or
+        updates an existing database entry from the component class data.
+        """
         comp_found = False
-        for ckt_file_item in ckt_file_list:
-            try:
-                check_inductor = ckt_file_item.variableinductor_set.all().\
-                        filter(comp_tag=self.tag)
-            except:
-                comp_found = False
-            else:
-                if check_inductor:
-                    comp_found = True
-                    old_inductor = check_inductor[0]
-                    old_inductor.comp_number = self.number
-                    old_inductor.comp_pos_3D = self.pos_3D
-                    old_inductor.comp_pos = self.pos
-                    old_inductor.comp_sheet = self.sheet
-                    old_inductor.save()
-                    ckt_file_item.save()
-                    break
+        check_ckt = sim_para_model.circuitschematics_set.\
+                    filter(ckt_file_name=self.sheet_name)
+        try:
+            check_inductor = check_ckt[0].variableinductor_set.\
+                    filter(comp_tag=self.tag)
+        except:
+            comp_found = False
+        else:
+            if check_inductor and len(check_inductor)==1:
+                comp_found = True
+                old_inductor = check_inductor[0]
+                old_inductor.comp_number = self.number
+                old_inductor.comp_pos_3D = self.pos_3D
+                old_inductor.comp_pos = self.pos
+                old_inductor.comp_sheet = self.sheet
+                old_inductor.save()
+                check_ckt[0].save()
+            if check_inductor and len(check_inductor)>1:
+                comp_found = True
+                for c1 in range(len(check_inductor)-1, 0, -1):
+                    check_inductor[c1].delete()
+                    check_ckt[0].save()
 
         if not comp_found:
             new_inductor = models.VariableInductor()
@@ -939,6 +997,11 @@ class Variable_Inductor:
         sim_para_model.save()
 
     def list_existing_components(self, ckt_file):
+        """
+        Check if the model of the circuit file contains
+        the associated database entry for the component.
+        Returns an empty list if not found.
+        """
         try:
             check_inductor = ckt_file.variableinductor_set.all().\
                         filter(comp_tag=self.tag)
@@ -952,6 +1015,10 @@ class Variable_Inductor:
         return comp_list
 
     def comp_as_a_dict(self, ckt_file):
+        """
+        Returns information about a component as a list
+        that can be displayed in a webpage.
+        """
         try:
             check_inductor = ckt_file.variableinductor_set.all().\
                         filter(comp_tag=self.tag)
@@ -970,6 +1037,9 @@ class Variable_Inductor:
         return comp_list
 
     def comp_as_a_form(self, ckt_file):
+        """
+        Returns a populated form for a component.
+        """
         try:
             check_inductor = ckt_file.variableinductor_set.all().\
                         filter(comp_tag=self.tag)
@@ -983,6 +1053,9 @@ class Variable_Inductor:
         return comp_list
 
     def update_form_data(self, request, comp_model, branch_map):
+        """
+        Extracts data from a form and saves it to the database.
+        """
         received_form = models.VariableInductorForm(request.POST)
         if received_form.is_valid():
             received_data = received_form.cleaned_data
@@ -998,6 +1071,10 @@ class Variable_Inductor:
         pass
 
     def assign_parameters(self, ckt_file_list):
+        """
+        Transfers data from the database to the component clas
+        objects for the simulation.
+        """
         for ckt_file_item in ckt_file_list:
             try:
                 check_inductor = ckt_file_item.variableinductor_set.all().\
@@ -1020,7 +1097,6 @@ class Capacitor:
     update system matrix on each iteration.
     """
 
-    
     def __init__(self, cap_index, cap_pos, cap_tag, nw_input):
         """
         Constructor to initialize value.
@@ -1047,7 +1123,6 @@ class Capacitor:
 
         return
 
-    
     def display(self):
         """
         Displays info about the component.
@@ -1063,8 +1138,6 @@ class Capacitor:
 
         return
 
-
-    
     def ask_values(self, x_list, ckt_mat, sys_branch):
         """
         Writes the values needed to the spreadsheet.
@@ -1073,7 +1146,7 @@ class Capacitor:
         cap_params.append(self.tag)
         cap_params.append(self.pos)
         cap_params.append(self.capacitor)
-        
+
         self.cap_elem = NwRdr.csv_tuple_2D(self.pos)
 
         if self.polrty==[-1, -1]:
@@ -1106,13 +1179,10 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
         
         self.polrty_3D = [self.sheet, self.polrty[0], self.polrty[1]]
         cap_params.append("Positive polarity towards (cell) = %s" %NwRdr.csv_element_2D(self.polrty))
-        
+
         x_list.append(cap_params)
 
         return
-
-
-
     
     def get_values(self, x_list, ckt_mat):
         """
@@ -1128,14 +1198,13 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
 
         self.polrty = NwRdr.csv_tuple_2D(cap_polrty)
         self.polrty_3D = [self.sheet, self.polrty[0], self.polrty[1]]
-        
+
         if not ckt_mat[self.sheet][self.polrty[0]][self.polrty[1]]:
             print "Polarity incorrect or changed. Branch does not exist at %s in sheet %s" %(NwRdr.csv_element(self.polrty). self.sheet_name)
             print
             raise CktEx.PolarityError
 
         return
-
 
     def determine_branch(self, sys_branches):
         """
@@ -1148,10 +1217,9 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
                     self.component_branch_dir = 1.0
                 else:
                     self.component_branch_dir = -1.0
-        
+
         return
-    
-    
+
     def transfer_to_sys(self, sys_loops, mat_e, mat_a, mat_b, mat_u, source_list):
         """
         The matrix B in E.dx/dt=Ax+Bu will be updated by the
@@ -1175,7 +1243,6 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
                             mat_b.data[c1][source_list.index(self.pos)] = -1.0
         return
 
-    
     def transfer_to_branch(self, sys_branch, source_list,  mat_u):
         """
         Transfers parameters to system branch if capacitor
@@ -1188,7 +1255,6 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
                 sys_branch[-1][1][source_list.index(self.pos_3D)] = 1.0
         return
 
-    
     def generate_val(self, source_lst, mat_e, mat_a, mat_b, mat_u, t, dt):
         """
         The capacitor voltage is updated in the matrix u in
@@ -1202,17 +1268,13 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
 
         return
 
-
-
     def update_val_old(self, sys_loop_map, lbyr_ratio, mat_e, mat_a, mat_b, state_vec, mat_u, sys_branches, sys_events):
         """
         The capacitor current is calculated as a result of the KVL.
         """
-
         for c1 in range(len(sys_branches)):
             if NwRdr.csv_tuple(self.pos) in sys_branches[c1]:
                 branch_pos = c1
-
 
         if sys_branches[branch_pos].index(self.polrty)<sys_branches[branch_pos].index(NwRdr.csv_tuple(self.pos)):
             self.current = sys_branches[branch_pos][-1][2]
@@ -1221,42 +1283,48 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
 
         return
 
-    
     def update_val(self, sys_loop_map, lbyr_ratio, mat_e, mat_a, mat_b, state_vec, mat_u, sys_branches, sys_events):
         """
         The capacitor current is calculated as a result of the KVL.
         """
-
         self.current = self.component_branch_dir*sys_branches[self.component_branch_pos][-1][2]
         return
 
     def pre_determine_state(self, br_currents, sys_branches, sys_events):
         pass
-    
+
     def determine_state(self, br_currents, sys_branches, sys_events):
         pass
 
     def create_form_values(self, sim_para_model, ckt_file_list, branch_map):
-#        sim_para_model = models.SimulationCase.objects.get(id=sim_id)
-#        ckt_file_list = sim_para_model.circuitschematics_set.all()
+        """
+        This function creates a new database entry for a component or
+        updates an existing database entry from the component class data.
+        """
         comp_found = False
-        for ckt_file_item in ckt_file_list:
-            try:
-                check_capacitor = ckt_file_item.capacitor_set.all().\
-                        filter(comp_tag=self.tag)
-            except:
-                comp_found = False
-            else:
-                if check_capacitor:
-                    comp_found = True
-                    old_capacitor = check_capacitor[0]
-                    old_capacitor.comp_number = self.number
-                    old_capacitor.comp_pos_3D = self.pos_3D
-                    old_capacitor.comp_pos = self.pos
-                    old_capacitor.comp_sheet = self.sheet
-                    old_capacitor.save()
-                    ckt_file_item.save()
-                    break
+        check_ckt = sim_para_model.circuitschematics_set.\
+                filter(ckt_file_name=self.sheet_name)
+        try:
+            check_capacitor = check_ckt[0].capacitor_set.\
+            check_capacitor = check_ckt[0].capacitor_set.\
+                    filter(comp_tag=self.tag)
+        except:
+            comp_found = False
+        else:
+            if check_capacitor and len(check_capacitor)==1:
+                comp_found = True
+                old_capacitor = check_capacitor[0]
+                old_capacitor.comp_number = self.number
+                old_capacitor.comp_pos_3D = self.pos_3D
+                old_capacitor.comp_pos = self.pos
+                old_capacitor.comp_sheet = self.sheet
+                old_capacitor.save()
+                check_ckt[0].save()
+            if check_capacitor and len(check_capacitor)==1:
+                comp_found = True
+                for c1 in range(len(check_capacitor)-1, 0, -1):
+                    check_capacitor[c1].delete()
+                    check_ckt[0].save()
 
         if not comp_found:
             new_capacitor = models.Capacitor()
@@ -1276,13 +1344,7 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
                             new_capacitor.comp_polarity_3D = NwRdr.csv_element(prev_element)
                             new_capacitor.comp_polarity = \
                                     NwRdr.csv_element_2D(prev_element[1:])
-            print("Capacitor")
-            print(new_capacitor.comp_pos_3D)
-            print(new_capacitor.comp_polarity_3D)
-            print(new_capacitor.comp_pos)
-            print(new_capacitor.comp_polarity)
-            print
-            print
+
             ckt_file_item = ckt_file_list.filter(ckt_file_name=self.sheet_name)
             new_capacitor.comp_ckt = ckt_file_item[0]
             new_capacitor.save()
@@ -1290,8 +1352,12 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
 
         return
 
-
     def list_existing_components(self, ckt_file):
+        """
+        Check if the model of the circuit file contains
+        the associated database entry for the component.
+        Returns an empty list if not found.
+        """
         try:
             check_capacitor = ckt_file.capacitor_set.all().\
                         filter(comp_tag=self.tag)
@@ -1305,6 +1371,10 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
         return comp_list
 
     def comp_as_a_dict(self, ckt_file):
+        """
+        Returns information about a component as a list
+        that can be displayed in a webpage.
+        """
         try:
             check_capacitor = ckt_file.capacitor_set.all().\
                         filter(comp_tag=self.tag)
@@ -1323,6 +1393,9 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
         return comp_list
 
     def comp_as_a_form(self, ckt_file):
+        """
+        Returns a populated form for a component.
+        """
         try:
             check_capacitor = ckt_file.capacitor_set.all().\
                         filter(comp_tag=self.tag)
@@ -1336,6 +1409,9 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
         return comp_list
 
     def update_form_data(self, request, comp_model, branch_map):
+        """
+        Extracts data from a form and saves it to the database.
+        """
         received_form = models.CapacitorForm(request.POST)
         if received_form.is_valid():
             received_data = received_form.cleaned_data
@@ -1360,15 +1436,15 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
                             else:
                                 comp_model.comp_polarity_3D = NwRdr.csv_element(new_polarity_3D)
                                 comp_model.save()
-                                print("Capacitor")
-                                print(comp_model.comp_polarity)
-                                print(comp_model.comp_polarity_3D)
                                 form_status = []
         else:
             form_status = [received_form, ]
         return form_status
 
     def pre_run_check(self, ckt_file_item, branch_map):
+        """
+        This function checks for errors primarily in polarity.
+        """
         comp_errors = []
         try:
             check_capacitor = ckt_file_item.capacitor_set.all().\
@@ -1393,6 +1469,10 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
         return comp_errors
 
     def assign_parameters(self, ckt_file_list):
+        """
+        Transfers data from the database to the component clas
+        objects for the simulation.
+        """
         for ckt_file_item in ckt_file_list:
             try:
                 check_capacitor = ckt_file_item.capacitor_set.all().\
@@ -1415,7 +1495,6 @@ class Voltage_Source:
     update system matrix on each iteration. 
     """
 
-    
     def __init__(self, volt_index, volt_pos, volt_tag, nw_input):
         """
         Constructor to initialize value.
@@ -1443,8 +1522,6 @@ class Voltage_Source:
 
         return
 
-
-    
     def display(self):
         """
         Displays info about the component.
@@ -1460,8 +1537,6 @@ class Voltage_Source:
 
         return
 
-
-    
     def ask_values(self, x_list, ckt_mat, sys_branch):
         """
         Writes the values needed to the spreadsheet.
@@ -1473,7 +1548,7 @@ class Voltage_Source:
         volt_params.append("Frequency (Hertz) = %f" %self.v_freq)
         volt_params.append("Phase (degrees) = %f" %self.v_phase)
         volt_params.append("Dc offset = %f" %self.v_offset)
-        
+
         self.volt_elem = NwRdr.csv_tuple_2D(self.pos)
 
         if self.polrty==[-1, -1]:
@@ -1504,14 +1579,12 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
                         print
 
         self.polrty_3D = [self.sheet, self.polrty[0], self.polrty[1]]
-        
+
         volt_params.append("Positive polarity towards (cell) = %s" %NwRdr.csv_element_2D(self.polrty))
         x_list.append(volt_params)
 
         return
 
-
-    
     def get_values(self, x_list, ckt_mat):
         """
         Takes the parameter from the spreadsheet.
@@ -1529,25 +1602,22 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
 
         self.polrty = NwRdr.csv_tuple_2D(volt_polrty)
         self.polrty_3D = [self.sheet, self.polrty[0], self.polrty[1]]
-        
+
         if not ckt_mat[self.sheet][self.polrty[0]][self.polrty[1]]:
             print "Polarity incorrect. Branch does not exist at %s in sheet %s" %(NwRdr.csv_element(self.polrty), self.sheet_name)
 
         return
 
-
     def determine_branch(self, sys_branches):
         """
         Determines which branch the component is found in.
         """
-        
         for c1 in range(len(sys_branches)):
             if NwRdr.csv_tuple(self.pos_3D) in sys_branches[c1]:
                 self.component_branch_pos = c1
-        
+
         return
-    
-    
+
     def transfer_to_sys(self, sys_loops, mat_e, mat_a, mat_b, mat_u, source_list):
         """
         The matrix B in E.dx/dt=Ax+Bu will be updated by the
@@ -1571,8 +1641,6 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
                             mat_b.data[c1][source_list.index(self.pos)] = -1.0
         return
 
-
-    
     def transfer_to_branch(self, sys_branch, source_list,  mat_u):
         """
         Transfers parameters to system branch if voltage
@@ -1583,8 +1651,6 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
                 sys_branch[-1][1][source_list.index(self.pos_3D)] = -1.0
             else:
                 sys_branch[-1][1][source_list.index(self.pos_3D)] = 1.0
-
-
     
     def generate_val(self, source_lst, mat_e, mat_a, mat_b, mat_u, t, dt):
         """
@@ -1594,40 +1660,44 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
         self.voltage = self.v_peak*math.sin(2*math.pi*self.v_freq*t + self.v_phase*math.pi/180.0) + self.v_offset
         mat_u.data[source_lst.index(self.pos_3D)][0] = self.voltage
         self.op_value = self.voltage
-
-
     
     def update_val(self, sys_loop_map, lbyr_ratio, mat_e, mat_a, mat_b, state_vec, mat_u, sys_branches, sys_events):
         pass
 
-
     def pre_determine_state(self, br_currents, sys_branches, sys_events):
         pass
-    
+
     def determine_state(self, br_currents, sys_branches, sys_events):
         pass
 
     def create_form_values(self, sim_para_model, ckt_file_list, branch_map):
-#        sim_para_model = models.SimulationCase.objects.get(id=sim_id)
-#        ckt_file_list = sim_para_model.circuitschematics_set.all()
+        """
+        This function creates a new database entry for a component or
+        updates an existing database entry from the component class data.
+        """
         comp_found = False
-        for ckt_file_item in ckt_file_list:
-            try:
-                check_voltagesource = ckt_file_item.voltage_source_set.all().\
-                        filter(comp_tag=self.tag)
-            except:
-                comp_found = False
-            else:
-                if check_voltagesource:
-                    comp_found = True
-                    old_voltagesource = check_voltagesource[0]
-                    old_voltagesource.comp_number = self.number
-                    old_voltagesource.comp_pos_3D = self.pos_3D
-                    old_voltagesource.comp_pos = self.pos
-                    old_voltagesource.comp_sheet = self.sheet
-                    old_voltagesource.save()
-                    ckt_file_item.save()
-                    break
+        check_ckt = sim_para_model.circuitschematics_set.\
+                    filter(ckt_file_name=self.sheet_name)
+        try:
+            check_voltagesource = check_ckt[0].voltage_source_set.\
+                    filter(comp_tag=self.tag)
+        except:
+            comp_found = False
+        else:
+            if check_voltagesource and len(check_voltagesource)==1:
+                comp_found = True
+                old_voltagesource = check_voltagesource[0]
+                old_voltagesource.comp_number = self.number
+                old_voltagesource.comp_pos_3D = self.pos_3D
+                old_voltagesource.comp_pos = self.pos
+                old_voltagesource.comp_sheet = self.sheet
+                old_voltagesource.save()
+                check_ckt[0].save()
+            if check_voltagesource and len(check_voltagesource)>1:
+                comp_found = True
+                for c1 in range(len(check_voltagesource)-1, 0, -1):
+                    check_voltagesource[c1].delete()
+                    check_ckt[0].save()
 
         if not comp_found:
             new_voltagesource = models.Voltage_Source()
@@ -1651,13 +1721,7 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
                             new_voltagesource.comp_polarity_3D = NwRdr.csv_element(prev_element)
                             new_voltagesource.comp_polarity = \
                                     NwRdr.csv_element_2D(prev_element[1:])
-            print("Voltage source")
-            print(new_voltagesource.comp_pos_3D)
-            print(new_voltagesource.comp_polarity_3D)
-            print(new_voltagesource.comp_pos)
-            print(new_voltagesource.comp_polarity)
-            print
-            print
+
             ckt_file_item = ckt_file_list.filter(ckt_file_name=self.sheet_name)
             new_voltagesource.comp_ckt = ckt_file_item[0]
             new_voltagesource.save()
@@ -1666,6 +1730,11 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
         return
 
     def list_existing_components(self, ckt_file):
+        """
+        Check if the model of the circuit file contains
+        the associated database entry for the component.
+        Returns an empty list if not found.
+        """
         try:
             check_voltagesource = ckt_file.voltage_source_set.all().\
                         filter(comp_tag=self.tag)
@@ -1679,6 +1748,10 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
         return comp_list
 
     def comp_as_a_dict(self, ckt_file):
+        """
+        Returns information about a component as a list
+        that can be displayed in a webpage.
+        """
         try:
             check_voltagesource = ckt_file.voltage_source_set.all().\
                         filter(comp_tag=self.tag)
@@ -1700,6 +1773,9 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
         return comp_list
 
     def comp_as_a_form(self, ckt_file):
+        """
+        Returns a populated form for a component.
+        """
         try:
             check_voltagesource = ckt_file.voltage_source_set.all().\
                         filter(comp_tag=self.tag)
@@ -1713,6 +1789,9 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
         return comp_list
 
     def update_form_data(self, request, comp_model, branch_map):
+        """
+        Extracts data from a form and saves it to the database.
+        """
         received_form = models.Voltage_SourceForm(request.POST)
         if received_form.is_valid():
             received_data = received_form.cleaned_data
@@ -1746,6 +1825,9 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
         return form_status
 
     def pre_run_check(self, ckt_file_item, branch_map):
+        """
+        This function checks for errors primarily in polarity.
+        """
         comp_errors = []
         try:
             check_voltage_source = ckt_file_item.voltage_source_set.all().\
@@ -1770,6 +1852,10 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
         return comp_errors
 
     def assign_parameters(self, ckt_file_list):
+        """
+        Transfers data from the database to the component clas
+        objects for the simulation.
+        """
         for ckt_file_item in ckt_file_list:
             try:
                 check_voltage_source = ckt_file_item.voltage_source_set.all().\
@@ -1795,7 +1881,6 @@ class Ammeter:
     update system matrix on each iteration.
     """
 
-    
     def __init__(self, amm_index, amm_pos, amm_tag, nw_input):
         """
         Constructor to initialize value.
@@ -1820,7 +1905,6 @@ class Ammeter:
 
         return
 
-    
     def display(self):
         """
         Displays info about the component.
@@ -1835,7 +1919,6 @@ class Ammeter:
 
         return
 
-    
     def ask_values(self, x_list, ckt_mat, sys_branch):
         """
         Writes the values needed to the spreadsheet.
@@ -1845,7 +1928,7 @@ class Ammeter:
         amm_params.append(self.pos)
 
         self.amm_elem = NwRdr.csv_tuple_2D(self.pos)
-        
+
         if self.polrty==[-1, -1]:
             # Looking for a default value of polarity
             # in the neighbouring cells
@@ -1875,16 +1958,13 @@ Check ammeter at %s in sheet %s" %(self.pos, self.sheet_name)
                         print
                         raise CktEx.PolarityError
 
-
         self.polrty_3D = [self.sheet, self.polrty[0], self.polrty[1]]
-        
+
         amm_params.append("Positive polarity towards (cell) = %s" %NwRdr.csv_element_2D(self.polrty))
         x_list.append(amm_params)
 
         return
 
-
-    
     def get_values(self, x_list, ckt_mat):
         """
         Takes the parameter from the spreadsheet.
@@ -1905,12 +1985,10 @@ Check ammeter at %s in sheet %s" %(self.pos, self.sheet_name)
 
         return
 
-
     def determine_branch(self, sys_branches):
         """
         Determines which branch the component is found in.
         """
-        
         for c1 in range(len(sys_branches)):
             if NwRdr.csv_tuple(self.pos_3D) in sys_branches[c1]:
                 self.component_branch_pos = c1
@@ -1918,28 +1996,22 @@ Check ammeter at %s in sheet %s" %(self.pos, self.sheet_name)
                     self.component_branch_dir = 1.0
                 else:
                     self.component_branch_dir = -1.0
-        
+
         return
 
-    
     def transfer_to_sys(self, sys_loops, mat_e, mat_a, mat_b, mat_u, source_list):
         pass
 
-    
     def transfer_to_branch(self, sys_branch, source_list,  mat_u):
         pass
 
-    
     def generate_val(self, source_lst, mat_e, mat_a, mat_b, mat_u, t, dt):
         pass
 
-
-    
     def update_val_old(self, sys_loop_map, lbyr_ratio, mat_e, mat_a, mat_b, state_vec, mat_u, sys_branches, sys_events):
         """
         The ammeter current is calculated as a result of the KVL.
         """
-
         for c1 in range(len(sys_branches)):
             if NwRdr.csv_tuple(self.pos) in sys_branches[c1]:
                 branch_pos = c1
@@ -1951,51 +2023,52 @@ Check ammeter at %s in sheet %s" %(self.pos, self.sheet_name)
 
         # Since it is a meter, this is its output value
         self.op_value = self.current
-        
-        return
 
+        return
 
     def update_val(self, sys_loop_map, lbyr_ratio, mat_e, mat_a, mat_b, state_vec, mat_u, sys_branches, sys_events):
         """
         The ammeter current is calculated as a result of the KVL.
         """
-
         self.current = self.component_branch_dir*sys_branches[self.component_branch_pos][-1][2]
         # Since it is a meter, this is its output value
         self.op_value = self.current
         return
 
-        self.current = self.component_branch_dir*sys_branches[self.component_branch_pos][-1][2]
-
-
     def pre_determine_state(self, br_currents, sys_branches, sys_events):
         pass
-    
-    
+
     def determine_state(self, br_currents, sys_branches, sys_events):
         pass
 
     def create_form_values(self, sim_para_model, ckt_file_list, branch_map):
-#        sim_para_model = models.SimulationCase.objects.get(id=sim_id)
-#        ckt_file_list = sim_para_model.circuitschematics_set.all()
+        """
+        This function creates a new database entry for a component or
+        updates an existing database entry from the component class data.
+        """
         comp_found = False
-        for ckt_file_item in ckt_file_list:
-            try:
-                check_ammeter = ckt_file_item.ammeter_set.all().\
-                        filter(comp_tag=self.tag)
-            except:
-                comp_found = False
-            else:
-                if check_ammeter:
-                    comp_found = True
-                    old_ammeter = check_ammeter[0]
-                    old_ammeter.comp_number = self.number
-                    old_ammeter.comp_pos_3D = self.pos_3D
-                    old_ammeter.comp_pos = self.pos
-                    old_ammeter.comp_sheet = self.sheet
-                    old_ammeter.save()
-                    ckt_file_item.save()
-                    break
+        check_ckt = sim_para_model.circuitschematics_set.\
+                    filter(ckt_file_name=self.sheet_name)
+        try:
+            check_ammeter = check_ckt[0].ammeter_set.\
+                    filter(comp_tag=self.tag)
+        except:
+            comp_found = False
+        else:
+            if check_ammeter and len(check_ammeter)==1:
+                comp_found = True
+                old_ammeter = check_ammeter[0]
+                old_ammeter.comp_number = self.number
+                old_ammeter.comp_pos_3D = self.pos_3D
+                old_ammeter.comp_pos = self.pos
+                old_ammeter.comp_sheet = self.sheet
+                old_ammeter.save()
+                check_ckt[0].save()
+            if check_ammeter and len(check_ammeter)>1:
+                comp_found = True
+                for c1 in range(len(check_ammeter)-1, 0, -1):
+                    check_ammeter[c1].delete()
+                    check_ckt[0].save()
 
         if not comp_found:
             new_ammeter = models.Ammeter()
@@ -2015,13 +2088,7 @@ Check ammeter at %s in sheet %s" %(self.pos, self.sheet_name)
                             new_ammeter.comp_polarity_3D = NwRdr.csv_element(prev_element)
                             new_ammeter.comp_polarity = \
                                     NwRdr.csv_element_2D(prev_element[1:])
-            print("Ammeter")
-            print(new_ammeter.comp_pos_3D)
-            print(new_ammeter.comp_polarity_3D)
-            print(new_ammeter.comp_pos)
-            print(new_ammeter.comp_polarity)
-            print
-            print
+
             ckt_file_item = ckt_file_list.filter(ckt_file_name=self.sheet_name)
             new_ammeter.comp_ckt = ckt_file_item[0]
             new_ammeter.save()
@@ -2030,6 +2097,11 @@ Check ammeter at %s in sheet %s" %(self.pos, self.sheet_name)
         return
 
     def list_existing_components(self, ckt_file):
+        """
+        Check if the model of the circuit file contains
+        the associated database entry for the component.
+        Returns an empty list if not found.
+        """
         try:
             check_ammeter = ckt_file.ammeter_set.all().\
                         filter(comp_tag=self.tag)
@@ -2043,6 +2115,10 @@ Check ammeter at %s in sheet %s" %(self.pos, self.sheet_name)
         return comp_list
 
     def comp_as_a_dict(self, ckt_file):
+        """
+        Returns information about a component as a list
+        that can be displayed in a webpage.
+        """
         try:
             check_ammeter = ckt_file.ammeter_set.all().\
                         filter(comp_tag=self.tag)
@@ -2061,6 +2137,9 @@ Check ammeter at %s in sheet %s" %(self.pos, self.sheet_name)
         return comp_list
 
     def comp_as_a_form(self, ckt_file):
+        """
+        Returns a populated form for a component.
+        """
         try:
             check_ammeter = ckt_file.ammeter_set.all().\
                         filter(comp_tag=self.tag)
@@ -2074,6 +2153,9 @@ Check ammeter at %s in sheet %s" %(self.pos, self.sheet_name)
         return comp_list
 
     def update_form_data(self, request, comp_model, branch_map):
+        """
+        Extracts data from a form and saves it to the database.
+        """
         received_form = models.AmmeterForm(request.POST)
         if received_form.is_valid():
             received_data = received_form.cleaned_data
@@ -2102,6 +2184,9 @@ Check ammeter at %s in sheet %s" %(self.pos, self.sheet_name)
         return form_status
 
     def pre_run_check(self, ckt_file_item, branch_map):
+        """
+        This function checks for errors primarily in polarity.
+        """
         comp_errors = []
         try:
             check_ammeter = ckt_file_item.ammeter_set.all().\
@@ -2126,6 +2211,10 @@ Check ammeter at %s in sheet %s" %(self.pos, self.sheet_name)
         return comp_errors
 
     def assign_parameters(self, ckt_file_list):
+        """
+        Transfers data from the database to the component clas
+        objects for the simulation.
+        """
         for ckt_file_item in ckt_file_list:
             try:
                 check_ammeter = ckt_file_item.ammeter_set.all().\
@@ -2146,7 +2235,7 @@ class Voltmeter:
     the resistor according to name tag, unique cell position,
     update system matrix on each iteration.
     """
-    
+
     def __init__(self, vm_index, vm_pos, vm_tag, nw_input):
         """
         Constructor to initialize value.
@@ -2172,8 +2261,7 @@ class Voltmeter:
         self.component_branch_dir = 1.0
 
         return
-    
-    
+
     def display(self):
         """
         Displays info about the component.
@@ -2188,7 +2276,6 @@ class Voltmeter:
 
         return
 
-    
     def ask_values(self, x_list, ckt_mat, sys_branch):
         """
         Writes the values needed to the spreadsheet.
@@ -2197,7 +2284,7 @@ class Voltmeter:
         vm_params.append(self.tag)
         vm_params.append(self.pos)
         vm_params.append("Rated voltage level to be measured = %s" %self.vm_level)
-        
+
         self.vm_elem = NwRdr.csv_tuple_2D(self.pos)
 
         if self.polrty==[-1, -1]:
@@ -2229,13 +2316,12 @@ Check voltmeter at %s in sheet %s" %(self.pos, self.sheet_name)
                         raise CktEx.PolarityError
 
         self.polrty_3D = [self.sheet, self.polrty[0], self.polrty[1]]
-        
+
         vm_params.append("Positive polarity towards (cell) = %s" %NwRdr.csv_element_2D(self.polrty))
         x_list.append(vm_params)
 
         return
 
-    
     def get_values(self, x_list, ckt_mat):
         """
         Takes the parameter from the spreadsheet.
@@ -2253,13 +2339,12 @@ Check voltmeter at %s in sheet %s" %(self.pos, self.sheet_name)
 
         self.polrty = NwRdr.csv_tuple_2D(vm_polrty)
         self.polrty_3D = [self.sheet, self.polrty[0], self.polrty[1]]
-        
+
         if not ckt_mat[self.sheet][self.polrty[0]][self.polrty[1]]:
             print "Polarity incorrect or changed. Branch does not exist at %s in sheet %s" %(NwRdr.csv_element(self.polrty), self.sheet_name)
             raise CktEx.PolarityError
 
         return
-
 
     def determine_branch(self, sys_branches):
         """
@@ -2272,16 +2357,14 @@ Check voltmeter at %s in sheet %s" %(self.pos, self.sheet_name)
                     self.component_branch_dir = 1.0
                 else:
                     self.component_branch_dir = -1.0
-        
+
         return
-    
     
     def transfer_to_sys(self, sys_loops, mat_e, mat_a, mat_b, mat_u, source_list):
         """
         The matrix A in E.dx/dt=Ax+Bu will be updated by the
         resistor value.
-        """        
-
+        """
         for c1 in range(len(sys_loops)):
             for c2 in range(c1, len(sys_loops)):
                 # Updating the elements depending
@@ -2299,8 +2382,6 @@ Check voltmeter at %s in sheet %s" %(self.pos, self.sheet_name)
                         mat_a.data[c2][c1] = mat_a.data[c1][c2]
 
         return
-
-
     
     def transfer_to_branch(self, sys_branch, source_list,  mat_u):
         """
@@ -2312,77 +2393,74 @@ Check voltmeter at %s in sheet %s" %(self.pos, self.sheet_name)
 
         return
 
-    
     def generate_val(self, source_lst, mat_e, mat_a, mat_b, mat_u, t, dt):
         pass
-
 
     def update_val_old(self, sys_loop_map, lbyr_ratio, mat_e, mat_a, mat_b, state_vec, mat_u, sys_branches, sys_events):
         """
         The voltmeter current is calculated as a result of the KVL.
         """
-
         for c1 in range(len(sys_branches)):
             if NwRdr.csv_tuple(self.pos) in sys_branches[c1]:
                 branch_pos = c1
-
 
         if sys_branches[branch_pos].index(self.polrty)<sys_branches[branch_pos].index(NwRdr.csv_tuple(self.pos)):
             self.current = sys_branches[branch_pos][-1][2]
         else:
             self.current = -sys_branches[branch_pos][-1][2]
 
-
         # Since it is a meter, this is its output value
         self.voltage = self.resistor*self.current
         self.op_value = self.voltage
 
         return
-
-
 
     def update_val(self, sys_loop_map, lbyr_ratio, mat_e, mat_a, mat_b, state_vec, mat_u, sys_branches, sys_events):
         """
         The voltmeter current is calculated as a result of the KVL.
         """
-
         self.current = self.component_branch_dir*sys_branches[self.component_branch_pos][-1][2]
-        
+
         # Since it is a meter, this is its output value
         self.voltage = self.resistor*self.current
         self.op_value = self.voltage
 
         return
 
-
     def pre_determine_state(self, br_currents, sys_branches, sys_events):
         pass
-    
 
     def determine_state(self, br_currents, sys_branches, sys_events):
         pass
 
     def create_form_values(self, sim_para_model, ckt_file_list, branch_map):
-#        sim_para_model = models.SimulationCase.objects.get(id=sim_id)
-#        ckt_file_list = sim_para_model.circuitschematics_set.all()
+        """
+        This function creates a new database entry for a component or
+        updates an existing database entry from the component class data.
+        """
         comp_found = False
-        for ckt_file_item in ckt_file_list:
-            try:
-                check_voltmeter = ckt_file_item.voltmeter_set.all().\
-                        filter(comp_tag=self.tag)
-            except:
-                comp_found = False
-            else:
-                if check_voltmeter:
-                    comp_found = True
-                    old_voltmeter = check_voltmeter[0]
-                    old_voltmeter.comp_number = self.number
-                    old_voltmeter.comp_pos_3D = self.pos_3D
-                    old_voltmeter.comp_pos = self.pos
-                    old_voltmeter.comp_sheet = self.sheet
-                    old_voltmeter.save()
-                    ckt_file_item.save()
-                    break
+        check_ckt = sim_para_model.circuitschematics_set.\
+                    filter(ckt_file_name=self.sheet_name)
+        try:
+            check_voltmeter = check_ckt[0].voltmeter_set.\
+                    filter(comp_tag=self.tag)
+        except:
+            comp_found = False
+        else:
+            if check_voltmeter and len(check_voltmeter)==1:
+                comp_found = True
+                old_voltmeter = check_voltmeter[0]
+                old_voltmeter.comp_number = self.number
+                old_voltmeter.comp_pos_3D = self.pos_3D
+                old_voltmeter.comp_pos = self.pos
+                old_voltmeter.comp_sheet = self.sheet
+                old_voltmeter.save()
+                check_ckt[0].save()
+            if check_voltmeter and len(check_voltmeter)>1:
+                comp_found = True
+                for c1 in range(len(check_voltmeter)-1, 0, -1):
+                    check_voltmeter[c1].delete()
+                    check_ckt[0].save()
 
         if not comp_found:
             new_voltmeter = models.Voltmeter()
@@ -2403,13 +2481,7 @@ Check voltmeter at %s in sheet %s" %(self.pos, self.sheet_name)
                             new_voltmeter.comp_polarity_3D = NwRdr.csv_element(prev_element)
                             new_voltmeter.comp_polarity = \
                                     NwRdr.csv_element_2D(prev_element[1:])
-            print("Voltmeter")
-            print(new_voltmeter.comp_pos_3D)
-            print(new_voltmeter.comp_polarity_3D)
-            print(new_voltmeter.comp_pos)
-            print(new_voltmeter.comp_polarity)
-            print
-            print
+
             ckt_file_item = ckt_file_list.filter(ckt_file_name=self.sheet_name)
             new_voltmeter.comp_ckt = ckt_file_item[0]
             new_voltmeter.save()
@@ -2418,6 +2490,11 @@ Check voltmeter at %s in sheet %s" %(self.pos, self.sheet_name)
         return
 
     def list_existing_components(self, ckt_file):
+        """
+        Check if the model of the circuit file contains
+        the associated database entry for the component.
+        Returns an empty list if not found.
+        """
         try:
             check_voltmeter = ckt_file.voltmeter_set.all().\
                         filter(comp_tag=self.tag)
@@ -2431,6 +2508,10 @@ Check voltmeter at %s in sheet %s" %(self.pos, self.sheet_name)
         return comp_list
 
     def comp_as_a_dict(self, ckt_file):
+        """
+        Returns information about a component as a list
+        that can be displayed in a webpage.
+        """
         try:
             check_voltmeter = ckt_file.voltmeter_set.all().\
                         filter(comp_tag=self.tag)
@@ -2450,6 +2531,9 @@ Check voltmeter at %s in sheet %s" %(self.pos, self.sheet_name)
         return comp_list
 
     def comp_as_a_form(self, ckt_file):
+        """
+        Returns a populated form for a component.
+        """
         try:
             check_voltmeter = ckt_file.voltmeter_set.all().\
                         filter(comp_tag=self.tag)
@@ -2463,6 +2547,9 @@ Check voltmeter at %s in sheet %s" %(self.pos, self.sheet_name)
         return comp_list
 
     def update_form_data(self, request, comp_model, branch_map):
+        """
+        Extracts data from a form and saves it to the database.
+        """
         received_form = models.VoltmeterForm(request.POST)
         if received_form.is_valid():
             received_data = received_form.cleaned_data
@@ -2494,6 +2581,9 @@ Check voltmeter at %s in sheet %s" %(self.pos, self.sheet_name)
         return form_status
 
     def pre_run_check(self, ckt_file_item, branch_map):
+        """
+        This function checks for errors primarily in polarity.
+        """
         comp_errors = []
         try:
             check_voltmeter = ckt_file_item.voltmeter_set.all().\
@@ -2518,6 +2608,10 @@ Check voltmeter at %s in sheet %s" %(self.pos, self.sheet_name)
         return comp_errors
 
     def assign_parameters(self, ckt_file_list):
+        """
+        Transfers data from the database to the component clas
+        objects for the simulation.
+        """
         for ckt_file_item in ckt_file_list:
             try:
                 check_voltmeter = ckt_file_item.voltmeter_set.all().\
@@ -2541,7 +2635,6 @@ class Current_Source:
     update system matrix on each iteration.
     """
 
-    
     def __init__(self, cs_index, cs_pos, cs_tag, nw_input):
         """
         Constructor to initialize value.
@@ -2571,8 +2664,7 @@ class Current_Source:
         self.component_branch_dir = 1.0
 
         return
-    
-    
+
     def display(self):
         """
         Displays info about the component.
@@ -2588,7 +2680,6 @@ class Current_Source:
 
         return
 
-    
     def ask_values(self, x_list, ckt_mat, sys_branch):
         """
         Writes the values needed to the spreadsheet.
@@ -2599,13 +2690,13 @@ class Current_Source:
         cs_params.append("Peak (Amps) = %f" %self.cs_peak)
         cs_params.append("Frequency (Hertz) = %f" %self.cs_freq)
         cs_params.append("Phase (degrees) = %f" %self.cs_phase)
-        
+
         self.cs_elem = NwRdr.csv_tuple_2D(self.pos)
 
         if self.polrty==[-1, -1]:
             # Looking for a default value of polarity
             # in the neighbouring cells
-            
+
             if self.cs_elem[0]>0:
                 if ckt_mat[self.sheet][self.cs_elem[0]-1][self.cs_elem[1]]:
                     self.polrty = [self.cs_elem[0]-1, self.cs_elem[1]]
@@ -2631,14 +2722,12 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
                         raise CktEx.PolarityError
 
         self.polrty_3D = [self.sheet, self.polrty[0], self.polrty[1]]
-        
+
         cs_params.append("Positive polarity towards (cell) = %s" %NwRdr.csv_element_2D(self.polrty))
         x_list.append(cs_params)
 
         return
 
-
-    
     def get_values(self, x_list, ckt_mat):
         """ Takes the parameter from the spreadsheet."""
         self.cs_peak = float(x_list[0].split("=")[1])
@@ -2653,13 +2742,12 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
 
         self.polrty = NwRdr.csv_tuple_2D(curr_polrty)
         self.polrty_3D = [self.sheet, self.polrty[0], self.polrty[1]]
-        
+
         if not ckt_mat[self.sheet][self.polrty[0]][self.polrty[1]]:
             print "Polarity incorrect. Branch does not exist at %s in sheet %s" %(NwRdr.csv_element_2D(self.polrty), self.sheet_name)
             raise CktEx.PolarityError
 
         return
-
 
     def determine_branch(self, sys_branches):
         """
@@ -2672,17 +2760,13 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
                     self.component_branch_dir = 1.0
                 else:
                     self.component_branch_dir = -1.0
-        
         return
-    
-    
-    
+
     def transfer_to_sys(self, sys_loops, mat_e, mat_a, mat_b, mat_u, source_list):
         """
         The matrix A in E.dx/dt=Ax+Bu will be updated by the
         resistor value of the current source.
-        """        
-
+        """
         for c1 in range(len(sys_loops)):
             for c2 in range(c1, len(sys_loops)):
                 # Updating the elements depending
@@ -2713,10 +2797,7 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
                                 mat_b.data[c1][source_list.index(self.pos)] = 1.0
                             else:
                                 mat_b.data[c1][source_list.index(self.pos)] = -1.0
-                            
         return
-
-
     
     def transfer_to_branch(self, sys_branch, source_list, mat_u):
         """
@@ -2734,8 +2815,6 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
 
         return
 
-
-    
     def generate_val(self, source_lst, mat_e, mat_a, mat_b, mat_u, t, dt):
         """
         The source current is updated in the matrix u in
@@ -2743,7 +2822,6 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
         matrix B has the diagonal element in the row set to 1,
         others set to zero.
         """
-
         # Updating the current source value
         self.current = self.cs_peak*math.sin(2*math.pi*self.cs_freq*t+self.cs_phase)
 
@@ -2758,8 +2836,6 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
 
         return
 
-
-
     def update_val_old(self, sys_loop_map, lbyr_ratio, mat_e, mat_a, mat_b, state_vec, mat_u, sys_branches, sys_events):
         """
         This function calculates the actual current in
@@ -2767,12 +2843,10 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
         found with respect to the existing voltage source. The branch
         voltage is then used to calculate the new voltage source value.
         """
-
         # Local variable to calculate the branch
         # current from all loops that contain
         # the current source branch.
         act_current = 0.0
-
 
         for c1 in range(len(sys_branches)):
             if NwRdr.csv_tuple(self.pos) in sys_branches[c1]:
@@ -2783,7 +2857,6 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
         else:
             act_current = -sys_branches[branch_pos][-1][2]
 
-
         # The branch voltage is the KVL with the
         # existing voltage source and the branch current
         branch_voltage = self.voltage+act_current*self.resistor
@@ -2793,7 +2866,6 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
 
         return
 
-
     def update_val(self, sys_loop_map, lbyr_ratio, mat_e, mat_a, mat_b, state_vec, mat_u, sys_branches, sys_events):
         """
         This function calculates the actual current in
@@ -2801,7 +2873,6 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
         found with respect to the existing voltage source. The branch
         voltage is then used to calculate the new voltage source value.
         """
-
         # Local variable to calculate the branch
         # current from all loops that contain
         # the current source branch.
@@ -2820,13 +2891,11 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
     def pre_determine_state(self, br_currents, sys_branches, sys_events):
         pass
 
-
     def determine_state(self, br_currents, sys_branches, sys_events):
         pass
 
     def create_form_values(self, sim_id, branch_map):
         pass
-
 
 
 class Controlled_Voltage_Source:
@@ -2835,7 +2904,6 @@ class Controlled_Voltage_Source:
     voltage as input from the user file.
     """
 
-    
     def __init__(self, volt_index, volt_pos, volt_tag, nw_input):
         """
         Constructor to initialize value.
@@ -2860,8 +2928,7 @@ class Controlled_Voltage_Source:
         self.control_values = [0.0]
 
         return
-    
-    
+
     def display(self):
         """
         Displays info about the component.
@@ -2876,7 +2943,6 @@ class Controlled_Voltage_Source:
 
         return
 
-    
     def ask_values(self, x_list, ckt_mat, sys_branch):
         """
         Writes the values needed to the spreadsheet.
@@ -2886,7 +2952,7 @@ class Controlled_Voltage_Source:
         volt_params.append(self.pos)
 
         self.volt_elem = NwRdr.csv_tuple_2D(self.pos)
-        
+
         if self.polrty==[-1, -1]:
             # Looking for a default value of polarity
             # in the neighbouring cells
@@ -2903,9 +2969,9 @@ class Controlled_Voltage_Source:
             if self.volt_elem[1]<len(ckt_mat[self.sheet][0])-1:
                 if ckt_mat[self.sheet][self.volt_elem[0]][self.volt_elem[1]+1]:
                     self.polrty = [self.volt_elem[0], self.volt_elem[1]+1]
-            
+
         else:
-            
+
             for c1 in range(len(sys_branch)):
                 if NwRdr.csv_tuple(self.pos_3D) in sys_branch[c1]:
                     if not [self.sheet, self.polrty[0], self.polrty[1]]  in sys_branch[c1]:
@@ -2918,15 +2984,13 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
                         raise CktEx.PolarityError
 
         self.polrty_3D = [self.sheet, self.polrty[0], self.polrty[1]]
-        
+
         volt_params.append("Positive polarity towards (cell) = %s" %NwRdr.csv_element_2D(self.polrty))
         volt_params.append("Name of control signal = %s" %self.control_tag[0])
         x_list.append(volt_params)
 
         return
 
-
-    
     def get_values(self, x_list, ckt_mat):
         """ Takes the parameter from the spreadsheet."""
         volt_polrty = x_list[0].split("=")[1]
@@ -2938,7 +3002,7 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
 
         self.polrty = NwRdr.csv_tuple_2D(volt_polrty)
         self.polrty_3D = [self.sheet, self.polrty[0], self.polrty[1]]
-        
+
         if not ckt_mat[self.sheet][self.polrty[0]][self.polrty[1]]:
             print "Polarity incorrect. Branch does not exist at %s in sheet %s" %(NwRdr.csv_element_2D(self.polrty), self.sheet_name)
             raise CktEx.PolarityError
@@ -2949,11 +3013,9 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
 
         return
 
-
     def determine_branch(self, sys_branches):
         pass
-    
-    
+
     def transfer_to_sys(self, sys_loops, mat_e, mat_a, mat_b, mat_u, source_list):
         """
         The matrix B in E.dx/dt=Ax+Bu will be updated by the
@@ -2978,8 +3040,6 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
             
         return
 
-
-    
     def transfer_to_branch(self, sys_branch, source_list, mat_u):
         """
         Transfers parameters to system branch if voltage
@@ -2993,8 +3053,6 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
 
         return
 
-
-    
     def generate_val(self, source_lst, mat_e, mat_a, mat_b, mat_u, t, dt):
         """
         The source voltage is updated in the matrix u in
@@ -3005,7 +3063,6 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
 
         return
 
-
     def update_val(self, sys_loop_map, lbyr_ratio, mat_e, mat_a, mat_b, state_vec, mat_u, sys_branches, sys_events):
         pass
 
@@ -3015,8 +3072,198 @@ Check source at %s in sheet %s" %(self.pos, self.sheet_name)
     def determine_state(self, br_currents, sys_branches, sys_events):
         pass
 
-    def create_form_values(self, sim_id, branch_map):
-        pass
+    def create_form_values(self, sim_para_model, ckt_file_list, branch_map):
+        """
+        This function creates a new database entry for a component or
+        updates an existing database entry from the component class data.
+        """
+        comp_found = False
+        check_ckt = sim_para_model.circuitschematics_set.\
+                    filter(ckt_file_name=self.sheet_name)
+        try:
+            check_contvoltsource = check_ckt[0].controlled_voltage_source_set.\
+                    filter(comp_tag=self.tag)
+        except:
+            comp_found = False
+        else:
+            if check_contvoltsource and len(check_contvoltsource)==1:
+                comp_found = True
+                old_contvoltsource = check_contvoltsource[0]
+                old_contvoltsource.comp_number = self.number
+                old_contvoltsource.comp_pos_3D = self.pos_3D
+                old_contvoltsource.comp_pos = self.pos
+                old_contvoltsource.comp_sheet = self.sheet
+                old_contvoltsource.save()
+                check_ckt[0].save()
+            if check_contvoltsource and len(check_contvoltsource)>1:
+                comp_found = True
+                for c1 in range(len(check_contvoltsource)-1, 0, -1):
+                    check_contvoltsource[c1].delete()
+                    check_ckt[0].save()
+
+        if not comp_found:
+            new_contvoltsource = models.Controlled_Voltage_Source()
+            new_contvoltsource.comp_number = self.number
+            new_contvoltsource.comp_pos_3D = self.pos_3D
+            new_contvoltsource.comp_pos = self.pos
+            new_contvoltsource.comp_sheet = self.sheet
+            new_contvoltsource.sheet_name = self.sheet_name.split(".csv")[0]
+            new_contvoltsource.comp_tag = self.tag
+            for c1 in range(len(branch_map)):
+                for c2 in range(c1+1, len(branch_map)):
+                    for c3 in range(len(branch_map[c1][c2])):
+                        if NwRdr.csv_tuple(self.pos_3D) in branch_map[c1][c2][c3]:
+                            pos_in_branch = branch_map[c1][c2][c3].\
+                                    index(NwRdr.csv_tuple(self.pos_3D))
+                            prev_element = branch_map[c1][c2][c3][pos_in_branch-1]
+                            new_contvoltsource.comp_polarity_3D = NwRdr.csv_element(prev_element)
+                            new_contvoltsource.comp_polarity = \
+                                    NwRdr.csv_element_2D(prev_element[1:])
+            ckt_file_item = ckt_file_list.filter(ckt_file_name=self.sheet_name)
+            new_contvoltsource.comp_ckt = ckt_file_item[0]
+            new_contvoltsource.save()
+        sim_para_model.save()
+
+        return
+
+    def list_existing_components(self, ckt_file):
+        """
+        Check if the model of the circuit file contains
+        the associated database entry for the component.
+        Returns an empty list if not found.
+        """
+        try:
+            check_voltagesource = ckt_file.controlled_voltage_source_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            comp_list = []
+        else:
+            if check_voltagesource and len(check_voltagesource)==1:
+                comp_list = check_voltagesource[0]
+            else:
+                comp_list = []
+        return comp_list
+
+    def comp_as_a_dict(self, ckt_file):
+        """
+        Returns information about a component as a list
+        that can be displayed in a webpage.
+        """
+        try:
+            check_voltagesource = ckt_file.controlled_voltage_source_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            comp_list = []
+        else:
+            if check_voltagesource and len(check_voltagesource)==1:
+                comp_list = []
+                comp_list.append(["Component type", check_voltagesource[0].comp_type])
+                comp_list.append(["Component name", check_voltagesource[0].comp_tag])
+                comp_list.append(["Component position", check_voltagesource[0].comp_pos])
+                comp_list.append(["Control name", check_voltagesource[0].comp_control_tag])
+                comp_list.append(["Positive polarity", check_voltagesource[0].comp_polarity])
+                comp_list.append(["Initial voltage", check_voltagesource[0].comp_voltage])
+            else:
+                comp_list = []
+        return comp_list
+
+    def comp_as_a_form(self, ckt_file):
+        """
+        Returns a populated form for a component.
+        """
+        try:
+            check_voltagesource = ckt_file.controlled_voltage_source_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            comp_list = []
+        else:
+            if check_voltagesource and len(check_voltagesource)==1:
+                comp_list = models.Controlled_Voltage_SourceForm(instance=check_voltagesource[0])
+            else:
+                comp_list = []
+        return comp_list
+
+    def update_form_data(self, request, comp_model, branch_map):
+        """
+        Extracts data from a form and saves it to the database.
+        """
+        received_form = models.Controlled_Voltage_SourceForm(request.POST)
+        if received_form.is_valid():
+            received_data = received_form.cleaned_data
+            comp_model.comp_control_tag = received_data["comp_control_tag"]
+            comp_model.comp_voltage = received_data["comp_voltage"]
+            new_polarity = received_data["comp_polarity"]
+            comp_model.comp_polarity = new_polarity
+            new_polarity_3D = [comp_model.comp_sheet, ]
+            new_polarity_3D.extend(NwRdr.csv_tuple_2D(new_polarity))
+            current_pos = NwRdr.csv_tuple(comp_model.comp_pos_3D)
+            for c1 in range(len(branch_map)):
+                for c2 in range(c1+1, len(branch_map[c1])):
+                    for c3 in range(len(branch_map[c1][c2])):
+                        if current_pos in branch_map[c1][c2][c3]:
+                            if new_polarity_3D not in branch_map[c1][c2][c3]:
+                                received_form.add_error("comp_polarity", \
+                                    "Polarity has to be an element on same branch as voltage source.")
+                                form_status = [received_form, ]
+                            elif current_pos==new_polarity_3D:
+                                received_form.add_error("comp_polarity", \
+                                    "Polarity can't be the same element as the component.")
+                                form_status = [received_form, ]
+                            else:
+                                comp_model.comp_polarity_3D = NwRdr.csv_element(new_polarity_3D)
+                                comp_model.save()
+                                form_status = []
+        else:
+            form_status = [received_form, ]
+        return form_status
+
+    def pre_run_check(self, ckt_file_item, branch_map):
+        """
+        This function checks for errors primarily in polarity.
+        """
+        comp_errors = []
+        try:
+            check_voltage_source = ckt_file_item.controlled_voltage_source_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            pass
+        else:
+            if check_voltage_source and len(check_voltage_source)==1:
+                comp_item = check_voltage_source[0]
+                current_pos = NwRdr.csv_tuple(comp_item.comp_pos_3D)
+                current_polarity = NwRdr.csv_tuple(comp_item.comp_polarity_3D)
+                for c1 in range(len(branch_map)):
+                    for c2 in range(c1+1, len(branch_map[c1])):
+                        for c3 in range(len(branch_map[c1][c2])):
+                            if current_pos in branch_map[c1][c2][c3]:
+                                if current_polarity not in branch_map[c1][c2][c3]:
+                                    comp_errors.append("Polarity has to be an element on \
+                                        same branch as voltage source.")
+                                elif current_pos==current_polarity:
+                                    comp_errors.append("Polarity can't be the same element \
+                                        as the component.")
+        return comp_errors
+
+    def assign_parameters(self, ckt_file_list):
+        """
+        Transfers data from the database to the component clas
+        objects for the simulation.
+        """
+        for ckt_file_item in ckt_file_list:
+            try:
+                check_voltage_source = ckt_file_item.controlled_voltage_source_set.all().\
+                        filter(comp_tag=self.tag)
+            except:
+                pass
+            else:
+                if check_voltage_source and len(check_voltage_source)==1:
+                    comp_model = check_voltage_source[0]
+                    self.polrty = NwRdr.csv_tuple_2D(comp_model.comp_polarity)
+                    self.polrty_3D = NwRdr.csv_tuple(comp_model.comp_polarity_3D)
+                    self.control_tag = [comp_model.comp_control_tag, ]
+                    self.control_values = [comp_model.comp_voltage, ]
+                    self.voltage = comp_model.comp_voltage
+        return
 
 
 class Diode:
@@ -3026,7 +3273,6 @@ class Diode:
     update system matrix on each iteration.
     """
 
-    
     def __init__(self, diode_index, diode_pos, diode_tag, nw_input):
         """
         Constructor to initialize value.
@@ -3054,7 +3300,6 @@ class Diode:
 
         return
 
-    
     def display(self):
         """
         Displays info about the component.
@@ -3069,8 +3314,6 @@ class Diode:
 
         return
 
-
-    
     def ask_values(self, x_list, ckt_mat, sys_branch):
         """
         Writes the values needed to the spreadsheet.
@@ -3079,13 +3322,13 @@ class Diode:
         diode_params.append(self.tag)
         diode_params.append(self.pos)
         diode_params.append("Voltage level (V) = %f" %self.diode_level)
-        
+
         self.diode_elem = NwRdr.csv_tuple_2D(self.pos)
-        
+
         if self.polrty==[-1, -1]:
             # Looking for a default value of polarity
             # in the neighbouring cells
-            
+
             if self.diode_elem[0]>0:
                 if ckt_mat[self.sheet][self.diode_elem[0]-1][self.diode_elem[1]]:
                     self.polrty = [self.diode_elem[0]-1, self.diode_elem[1]]
@@ -3111,14 +3354,12 @@ Check diode at %s in sheet %s" %(self.pos, self.sheet_name)
                         raise CktEx.PolarityError
 
         self.polrty_3D = [self.sheet, self.polrty[0], self.polrty[1]]
-        
+
         diode_params.append("Cathode polarity towards (cell) = %s" %NwRdr.csv_element_2D(self.polrty))
         x_list.append(diode_params)
 
         return
 
-
-    
     def get_values(self, x_list, ckt_mat):
         """
         Takes the parameter from the spreadsheet.
@@ -3129,7 +3370,6 @@ Check diode at %s in sheet %s" %(self.pos, self.sheet_name)
         self.resistor_off = self.diode_level/1.0e-6
         self.resistor = self.resistor_off
 
-
         diode_polrty = x_list[1].split("=")[1]
 
         # Convert the human readable form of cell
@@ -3139,13 +3379,12 @@ Check diode at %s in sheet %s" %(self.pos, self.sheet_name)
 
         self.polrty = NwRdr.csv_tuple_2D(diode_polrty)
         self.polrty_3D = [self.sheet, self.polrty[0], self.polrty[1]]
-        
+
         if not ckt_mat[self.sheet][self.polrty[0]][self.polrty[1]]:
             print "Polarity incorrect. Branch does not exist at %s in sheet %s" %(NwRdr.csv_element2D(self.polrty), self.sheet_name)
             raise CktEx.PolarityError
 
         return
-
 
     def determine_branch(self, sys_branches):
         """
@@ -3158,16 +3397,14 @@ Check diode at %s in sheet %s" %(self.pos, self.sheet_name)
                     self.component_branch_dir = 1.0
                 else:
                     self.component_branch_dir = -1.0
-        
+
         return
-    
-    
+
     def transfer_to_sys(self, sys_loops, mat_e, mat_a, mat_b, mat_u, source_list):
         """
         The matrix A in E.dx/dt=Ax+Bu will be updated by the
         resistor value of the diode.
         """
-
         for c1 in range(len(sys_loops)):
             for c2 in range(c1, len(sys_loops)):
                 # Updating the elements depending
@@ -3201,17 +3438,13 @@ Check diode at %s in sheet %s" %(self.pos, self.sheet_name)
 
         return
 
-
-    
     def transfer_to_branch(self, sys_branch, source_list,  mat_u):
         """
         Update the resistor info of the diode
         to the branch list.
         """
-
         if NwRdr.csv_tuple(self.pos_3D) in sys_branch:
             sys_branch[-1][0][0] += self.resistor
-
 
         # For the diode forward voltage drop.
         if NwRdr.csv_tuple(self.pos_3D) in sys_branch:
@@ -3226,11 +3459,9 @@ Check diode at %s in sheet %s" %(self.pos, self.sheet_name)
         else:
             mat_u.data[source_list.index(self.pos_3D)][0] = 0.0
             self.voltage = 0.0
-        
+
         return
 
-
-    
     def generate_val(self, source_lst, mat_e, mat_a, mat_b, mat_u, t, dt):
         """
         The diode forward drop voltage is updated
@@ -3245,7 +3476,6 @@ Check diode at %s in sheet %s" %(self.pos, self.sheet_name)
 
         return
 
-
     def update_val_old(self, sys_loop_map, lbyr_ratio, mat_e, mat_a, mat_b, state_vec, mat_u, sys_branches, sys_events):
         """
         This function calculates the actual current in the 
@@ -3253,7 +3483,6 @@ Check diode at %s in sheet %s" %(self.pos, self.sheet_name)
         with respect to the existing diode resistance. The diode
         voltage is then used to decide the turn on condition.
         """
-
         for c1 in range(len(sys_branches)):
             if NwRdr.csv_tuple(self.pos) in sys_branches[c1]:
                 branch_pos = c1
@@ -3284,7 +3513,6 @@ Check diode at %s in sheet %s" %(self.pos, self.sheet_name)
 
         return
 
-    
     def update_val(self, sys_loop_map, lbyr_ratio, mat_e, mat_a, mat_b, state_vec, mat_u, sys_branches, sys_events):
         """
         This function calculates the actual current in the 
@@ -3292,7 +3520,6 @@ Check diode at %s in sheet %s" %(self.pos, self.sheet_name)
         with respect to the existing diode resistance. The diode
         voltage is then used to decide the turn on condition.
         """
-
         self.current = self.component_branch_dir*sys_branches[self.component_branch_pos][-1][2]
         self.voltage = self.current*self.resistor
 
@@ -3315,14 +3542,12 @@ Check diode at %s in sheet %s" %(self.pos, self.sheet_name)
 
         return
 
-
     def determine_state_old(self, br_currents, sys_branches, sys_events):
         """
         Determines the state of the diode following an event
         where the continuity of current through an inductor is
         about to be broken.
         """
-
         # Mark the position of the diode in the branches list
         for c1 in range(len(sys_branches)):
             if NwRdr.csv_tuple(self.pos) in sys_branches[c1]:
@@ -3346,7 +3571,6 @@ Check diode at %s in sheet %s" %(self.pos, self.sheet_name)
                     sys_events[branch_pos] = "yes"
                     self.status = "off"
 
-
         if br_currents[branch_pos]*self.resistor>1.0:
             if sys_branches[branch_pos].index(self.polrty)>sys_branches[branch_pos].index(NwRdr.csv_tuple(self.pos)):
                 if self.status=="off":
@@ -3367,14 +3591,12 @@ Check diode at %s in sheet %s" %(self.pos, self.sheet_name)
 
         return
 
-
     def pre_determine_state(self, br_currents, sys_branches, sys_events):
         """
         Determines the state of the diode following an event
         where the continuity of current through an inductor is
         about to be broken.
         """
-
         # Since branch current direction is by default considered
         # positive when flowing away from the starting node
         # If the branch current is negative, with the diode cathode
@@ -3390,7 +3612,6 @@ Check diode at %s in sheet %s" %(self.pos, self.sheet_name)
             if self.status=="on":
                 sys_events[self.component_branch_pos] = "yes"
                 self.status = "off"
-
 
         # Update the value of resistance
         if self.status=="off":
@@ -3399,7 +3620,6 @@ Check diode at %s in sheet %s" %(self.pos, self.sheet_name)
             self.resistor = self.resistor_on
 
         return
-
     
     def determine_state(self, br_currents, sys_branches, sys_events):
         """
@@ -3407,7 +3627,6 @@ Check diode at %s in sheet %s" %(self.pos, self.sheet_name)
         where the continuity of current through an inductor is
         about to be broken.
         """
-
         # Since branch current direction is by default considered
         # positive when flowing away from the starting node
         # If the branch current is negative, with the diode cathode
@@ -3423,7 +3642,6 @@ Check diode at %s in sheet %s" %(self.pos, self.sheet_name)
             if self.status=="on":
                 sys_events[self.component_branch_pos] = "yes"
                 self.status = "off"
-
 
         # Update the value of resistance
         if self.status=="off":
@@ -3434,26 +3652,33 @@ Check diode at %s in sheet %s" %(self.pos, self.sheet_name)
         return
 
     def create_form_values(self, sim_para_model, ckt_file_list, branch_map):
-#        sim_para_model = models.SimulationCase.objects.get(id=sim_id)
-#        ckt_file_list = sim_para_model.circuitschematics_set.all()
+        """
+        This function creates a new database entry for a component or
+        updates an existing database entry from the component class data.
+        """
         comp_found = False
-        for ckt_file_item in ckt_file_list:
-            try:
-                check_diode = ckt_file_item.diode_set.all().\
-                        filter(comp_tag=self.tag)
-            except:
-                comp_found = False
-            else:
-                if check_diode:
-                    comp_found = True
-                    old_diode = check_diode[0]
-                    old_diode.comp_number = self.number
-                    old_diode.comp_pos_3D = self.pos_3D
-                    old_diode.comp_pos = self.pos
-                    old_diode.comp_sheet = self.sheet
-                    old_diode.save()
-                    ckt_file_item.save()
-                    break
+        check_ckt = sim_para_model.circuitschematics_set.\
+                    filter(ckt_file_name=self.sheet_name)
+        try:
+            check_diode = check_ckt[0].diode_set.\
+                    filter(comp_tag=self.tag)
+        except:
+            comp_found = False
+        else:
+            if check_diode and len(check_diode)==1:
+                comp_found = True
+                old_diode = check_diode[0]
+                old_diode.comp_number = self.number
+                old_diode.comp_pos_3D = self.pos_3D
+                old_diode.comp_pos = self.pos
+                old_diode.comp_sheet = self.sheet
+                old_diode.save()
+                check_ckt[0].save()
+            if check_diode and len(check_diode)==1:
+                comp_found = True
+                for c1 in range(len(check_diode)-1, 0, -1):
+                    check_diode[c1].delete()
+                    check_ckt[0].save()
 
         if not comp_found:
             new_diode = models.Diode()
@@ -3473,13 +3698,7 @@ Check diode at %s in sheet %s" %(self.pos, self.sheet_name)
                             new_diode.comp_polarity_3D = NwRdr.csv_element(prev_element)
                             new_diode.comp_polarity = \
                                     NwRdr.csv_element_2D(prev_element[1:])
-            print("Diode")
-            print(new_diode.comp_pos_3D)
-            print(new_diode.comp_polarity_3D)
-            print(new_diode.comp_pos)
-            print(new_diode.comp_polarity)
-            print
-            print
+
             ckt_file_item = ckt_file_list.filter(ckt_file_name=self.sheet_name)
             new_diode.comp_ckt = ckt_file_item[0]
             new_diode.save()
@@ -3488,6 +3707,11 @@ Check diode at %s in sheet %s" %(self.pos, self.sheet_name)
         return
 
     def list_existing_components(self, ckt_file):
+        """
+        Check if the model of the circuit file contains
+        the associated database entry for the component.
+        Returns an empty list if not found.
+        """
         try:
             check_diode = ckt_file.diode_set.all().\
                         filter(comp_tag=self.tag)
@@ -3501,6 +3725,10 @@ Check diode at %s in sheet %s" %(self.pos, self.sheet_name)
         return comp_list
 
     def comp_as_a_dict(self, ckt_file):
+        """
+        Returns information about a component as a list
+        that can be displayed in a webpage.
+        """
         try:
             check_diode = ckt_file.diode_set.all().\
                         filter(comp_tag=self.tag)
@@ -3520,6 +3748,9 @@ Check diode at %s in sheet %s" %(self.pos, self.sheet_name)
         return comp_list
 
     def comp_as_a_form(self, ckt_file):
+        """
+        Returns a populated form for a component.
+        """
         try:
             check_diode = ckt_file.diode_set.all().\
                         filter(comp_tag=self.tag)
@@ -3533,6 +3764,9 @@ Check diode at %s in sheet %s" %(self.pos, self.sheet_name)
         return comp_list
 
     def update_form_data(self, request, comp_model, branch_map):
+        """
+        Extracts data from a form and saves it to the database.
+        """
         received_form = models.DiodeForm(request.POST)
         if received_form.is_valid():
             received_data = received_form.cleaned_data
@@ -3564,6 +3798,9 @@ Check diode at %s in sheet %s" %(self.pos, self.sheet_name)
         return form_status
 
     def pre_run_check(self, ckt_file_item, branch_map):
+        """
+        This function checks for errors primarily in polarity.
+        """
         comp_errors = []
         try:
             check_diode = ckt_file_item.diode_set.all().\
@@ -3588,6 +3825,10 @@ Check diode at %s in sheet %s" %(self.pos, self.sheet_name)
         return comp_errors
 
     def assign_parameters(self, ckt_file_list):
+        """
+        Transfers data from the database to the component clas
+        objects for the simulation.
+        """
         for ckt_file_item in ckt_file_list:
             try:
                 check_diode = ckt_file_item.diode_set.all().\
@@ -3640,8 +3881,7 @@ class Switch:
         self.component_branch_dir = 1.0
 
         return
-    
-    
+
     def display(self):
         """
         Displays info about the component.
@@ -3656,8 +3896,6 @@ class Switch:
 
         return
 
-
-    
     def ask_values(self, x_list, ckt_mat, sys_branch):
         """
         Writes the values needed to the spreadsheet.
@@ -3668,7 +3906,7 @@ class Switch:
         switch_params.append("Voltage level (V) = %f" %self.switch_level)        
 
         self.switch_elem = NwRdr.csv_tuple_2D(self.pos)
-        
+
         if self.polrty==[-1, -1]:
             # Looking for a default value of polarity
             # in the neighbouring cells
@@ -3699,15 +3937,13 @@ Check switch at %s in sheet %s" %(self.pos, self.sheet_name)
                         raise CktEx.PolarityError
 
         self.polrty_3D = [self.sheet, self.polrty[0], self.polrty[1]]
-        
+
         switch_params.append("Negative polarity towards (cell) = %s" %NwRdr.csv_element_2D(self.polrty))
         switch_params.append("Name of control signal = %s" %self.control_tag[0])
         x_list.append(switch_params)
 
         return
 
-
-    
     def get_values(self, x_list, ckt_mat):
         """ Takes the parameter from the spreadsheet."""
         self.switch_level = float(x_list[0].split("=")[1])
@@ -3725,7 +3961,7 @@ Check switch at %s in sheet %s" %(self.pos, self.sheet_name)
 
         self.polrty = NwRdr.csv_tuple_2D(switch_polrty)
         self.polrty_3D = [self.sheet, self.polrty[0], self.polrty[1]]
-        
+
         if not ckt_mat[self.sheet][self.polrty[0]][self.polrty[1]]:
             print "Polarity incorrect. Branch does not exist at %s in sheet %s" %(NwRdr.csv_element(self.polrty), self.sheet_name)
             raise CktEx.PolarityError
@@ -3735,7 +3971,6 @@ Check switch at %s in sheet %s" %(self.pos, self.sheet_name)
             self.control_tag[0] = self.control_tag[0][1:]
 
         return
-
 
     def determine_branch(self, sys_branches):
         """
@@ -3748,16 +3983,14 @@ Check switch at %s in sheet %s" %(self.pos, self.sheet_name)
                     self.component_branch_dir = 1.0
                 else:
                     self.component_branch_dir = -1.0
-        
+
         return
-    
 
     def transfer_to_sys(self, sys_loops, mat_e, mat_a, mat_b, mat_u, source_list):
         """
         The matrix A in E.dx/dt=Ax+Bu will be updated by the
         resistor value of the switch.
         """
-
         for c1 in range(len(sys_loops)):
             for c2 in range(c1, len(sys_loops)):
                 # Updating the elements depending
@@ -3791,14 +4024,11 @@ Check switch at %s in sheet %s" %(self.pos, self.sheet_name)
 
         return
 
-
-    
     def transfer_to_branch(self, sys_branch, source_list,  mat_u):
         """
         Update the resistor info of the switch
         to the branch list.
         """
-
         if NwRdr.csv_tuple(self.pos_3D) in sys_branch:
             sys_branch[-1][0][0] += self.resistor
 
@@ -3808,7 +4038,7 @@ Check switch at %s in sheet %s" %(self.pos, self.sheet_name)
                 sys_branch[-1][1][source_list.index(self.pos_3D)] = 0.0
             else:
                 sys_branch[-1][1][source_list.index(self.pos_3D)] = 0.0
-        
+
         if self.status=="on":
             mat_u.data[source_list.index(self.pos_3D)][0] = 0.0
             self.voltage = 0.0
@@ -3818,14 +4048,11 @@ Check switch at %s in sheet %s" %(self.pos, self.sheet_name)
 
         return
 
-
-    
     def generate_val(self, source_lst, mat_e, mat_a, mat_b, mat_u, t, dt):
         """
         The switch forward drop voltage is updated
         in the matrix u in E.dx/dt=Ax+Bu.
         """
-
         # The switch does not contain voltage when on.
         if self.status=="on":
             mat_u.data[source_lst.index(self.pos_3D)][0] = 0.0
@@ -3836,8 +4063,6 @@ Check switch at %s in sheet %s" %(self.pos, self.sheet_name)
 
         return
 
-
-    
     def update_val_old(self, sys_loop_map, lbyr_ratio, mat_e, mat_a, mat_b, state_vec, mat_u, sys_branches, sys_events):
         """
         This function calculates the actual current in the 
@@ -3845,7 +4070,6 @@ Check switch at %s in sheet %s" %(self.pos, self.sheet_name)
         with respect to the existing switch resistance. The switch
         voltage is then used to decide the turn on condition.
         """
-
         for c1 in range(len(sys_branches)):
             if NwRdr.csv_tuple(self.pos) in sys_branches[c1]:
                 branch_pos = c1
@@ -3892,8 +4116,6 @@ Check switch at %s in sheet %s" %(self.pos, self.sheet_name)
 
         return
 
-
-
     def update_val(self, sys_loop_map, lbyr_ratio, mat_e, mat_a, mat_b, state_vec, mat_u, sys_branches, sys_events):
         """
         This function calculates the actual current in the 
@@ -3901,7 +4123,6 @@ Check switch at %s in sheet %s" %(self.pos, self.sheet_name)
         with respect to the existing switch resistance. The switch
         voltage is then used to decide the turn on condition.
         """
-
         self.current = self.component_branch_dir*sys_branches[self.component_branch_pos][-1][2]
         self.voltage = self.current*self.resistor
 
@@ -3933,8 +4154,6 @@ Check switch at %s in sheet %s" %(self.pos, self.sheet_name)
             self.resistor = self.resistor_on
 
         return
-
-
     
     def determine_state_old(self, br_currents, sys_branches, sys_events):
         """
@@ -3943,7 +4162,6 @@ Check switch at %s in sheet %s" %(self.pos, self.sheet_name)
         about to be broken. This can only check if the switch should
         turn off. Turn on is only decided by the update_value method.
         """
-
         # Mark the position of the switch in sys_branches
         for c1 in range(len(sys_branches)):
             if NwRdr.csv_tuple(self.pos) in sys_branches[c1]:
@@ -3969,7 +4187,6 @@ Check switch at %s in sheet %s" %(self.pos, self.sheet_name)
             self.resistor = self.resistor_on
 
         return
-
 
     def pre_determine_state(self, br_currents, sys_branches, sys_events):
         """
@@ -4011,8 +4228,6 @@ Check switch at %s in sheet %s" %(self.pos, self.sheet_name)
 
         return
 
-
-
     def determine_state(self, br_currents, sys_branches, sys_events):
         """
         Determines the state of the switch following an event
@@ -4020,7 +4235,6 @@ Check switch at %s in sheet %s" %(self.pos, self.sheet_name)
         about to be broken. This can only check if the switch should
         turn off. Turn on is only decided by the update_value method.
         """
-
         # If the current direction is reverse, switch can never conduct
         if br_currents[self.component_branch_pos]*self.component_branch_dir<0.0:
             #if sys_branches[branch_pos].index(self.polrty)>sys_branches[branch_pos].index(NwRdr.csv_tuple(self.pos)):
@@ -4036,8 +4250,204 @@ Check switch at %s in sheet %s" %(self.pos, self.sheet_name)
 
         return
 
-    def create_form_values(self, sim_id, branch_map):
-        pass
+
+    def create_form_values(self, sim_para_model, ckt_file_list, branch_map):
+        """
+        This function creates a new database entry for a component or
+        updates an existing database entry from the component class data.
+        """
+        comp_found = False
+        check_ckt = sim_para_model.circuitschematics_set.\
+                    filter(ckt_file_name=self.sheet_name)
+        try:
+            check_switch = check_ckt[0].switch_set.\
+                    filter(comp_tag=self.tag)
+        except:
+            comp_found = False
+        else:
+            if check_switch and len(check_switch)==1:
+                comp_found = True
+                old_switch = check_switch[0]
+                old_switch.comp_number = self.number
+                old_switch.comp_pos_3D = self.pos_3D
+                old_switch.comp_pos = self.pos
+                old_switch.comp_sheet = self.sheet
+                old_switch.save()
+                check_ckt[0].save()
+            if check_switch and len(check_switch)>1:
+                comp_found = True
+                for c1 in range(len(check_switch)-1, 0, -1):
+                    check_switch[c1].delete()
+                    check_ckt[0].save()
+
+        if not comp_found:
+            new_switch = models.Switch()
+            new_switch.comp_number = self.number
+            new_switch.comp_pos_3D = self.pos_3D
+            new_switch.comp_pos = self.pos
+            new_switch.comp_sheet = self.sheet
+            new_switch.sheet_name = self.sheet_name.split(".csv")[0]
+            new_switch.comp_tag = self.tag
+            for c1 in range(len(branch_map)):
+                for c2 in range(c1+1, len(branch_map)):
+                    for c3 in range(len(branch_map[c1][c2])):
+                        if NwRdr.csv_tuple(self.pos_3D) in branch_map[c1][c2][c3]:
+                            pos_in_branch = branch_map[c1][c2][c3].\
+                                    index(NwRdr.csv_tuple(self.pos_3D))
+                            prev_element = branch_map[c1][c2][c3][pos_in_branch-1]
+                            new_switch.comp_polarity_3D = NwRdr.csv_element(prev_element)
+                            new_switch.comp_polarity = \
+                                    NwRdr.csv_element_2D(prev_element[1:])
+
+            ckt_file_item = ckt_file_list.filter(ckt_file_name=self.sheet_name)
+            new_switch.comp_ckt = ckt_file_item[0]
+            new_switch.save()
+        sim_para_model.save()
+
+        return
+
+    def list_existing_components(self, ckt_file):
+        """
+        Check if the model of the circuit file contains
+        the associated database entry for the component.
+        Returns an empty list if not found.
+        """
+        try:
+            check_switch = ckt_file.switch_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            comp_list = []
+        else:
+            if check_switch and len(check_switch)==1:
+                comp_list = check_switch[0]
+            else:
+                comp_list = []
+        return comp_list
+
+    def comp_as_a_dict(self, ckt_file):
+        """
+        Returns information about a component as a list
+        that can be displayed in a webpage.
+        """
+        try:
+            check_switch = ckt_file.switch_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            comp_list = []
+        else:
+            if check_switch and len(check_switch)==1:
+                comp_list = []
+                comp_list.append(["Component type", check_switch[0].comp_type])
+                comp_list.append(["Component name", check_switch[0].comp_tag])
+                comp_list.append(["Component position", check_switch[0].comp_pos])
+                comp_list.append(["Control tag", check_switch[0].comp_control_tag])
+                comp_list.append(["Voltage level", check_switch[0].comp_volt_level])
+                comp_list.append(["Direction of cathode", \
+                        check_switch[0].comp_polarity])
+            else:
+                comp_list = []
+        return comp_list
+
+    def comp_as_a_form(self, ckt_file):
+        """
+        Returns a populated form for a component.
+        """
+        try:
+            check_switch = ckt_file.switch_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            comp_list = []
+        else:
+            if check_switch and len(check_switch)==1:
+                comp_list = models.SwitchForm(instance=check_switch[0])
+            else:
+                comp_list = []
+        return comp_list
+
+    def update_form_data(self, request, comp_model, branch_map):
+        """
+        Extracts data from a form and saves it to the database.
+        """
+        received_form = models.SwitchForm(request.POST)
+        if received_form.is_valid():
+            received_data = received_form.cleaned_data
+            comp_model.comp_volt_level = received_data["comp_volt_level"]
+            comp_model.comp_control_tag = received_data["comp_control_tag"]
+            new_polarity = received_data["comp_polarity"]
+            comp_model.comp_polarity = new_polarity
+            new_polarity_3D = [comp_model.comp_sheet, ]
+            new_polarity_3D.extend(NwRdr.csv_tuple_2D(new_polarity))
+            comp_model.comp_polarity_3D = NwRdr.csv_element(new_polarity_3D)
+            current_pos = NwRdr.csv_tuple(comp_model.comp_pos_3D)
+            for c1 in range(len(branch_map)):
+                for c2 in range(c1+1, len(branch_map[c1])):
+                    for c3 in range(len(branch_map[c1][c2])):
+                        if current_pos in branch_map[c1][c2][c3]:
+                            if new_polarity_3D not in branch_map[c1][c2][c3]:
+                                received_form.add_error("comp_polarity", \
+                                    "Polarity has to be an element on same branch as switch.")
+                                form_status = [received_form, ]
+                            elif current_pos==new_polarity_3D:
+                                received_form.add_error("comp_polarity", \
+                                    "Polarity can't be the same element as the component.")
+                                form_status = [received_form, ]
+                            else:
+                                comp_model.comp_polarity_3D = NwRdr.csv_element(new_polarity_3D)
+                                comp_model.save()
+                                form_status = []
+        else:
+            form_status = [received_form, ]
+        return form_status
+
+    def pre_run_check(self, ckt_file_item, branch_map):
+        """
+        This function checks for errors primarily in polarity.
+        """
+        comp_errors = []
+        try:
+            check_switch = ckt_file_item.switch_set.all().\
+                        filter(comp_tag=self.tag)
+        except:
+            pass
+        else:
+            if check_switch and len(check_switch)==1:
+                comp_item = check_switch[0]
+                current_pos = NwRdr.csv_tuple(comp_item.comp_pos_3D)
+                current_polarity = NwRdr.csv_tuple(comp_item.comp_polarity_3D)
+                for c1 in range(len(branch_map)):
+                    for c2 in range(c1+1, len(branch_map[c1])):
+                        for c3 in range(len(branch_map[c1][c2])):
+                            if current_pos in branch_map[c1][c2][c3]:
+                                if current_polarity not in branch_map[c1][c2][c3]:
+                                    comp_errors.append("Polarity has to be an element on \
+                                        same branch as switch.")
+                                elif current_pos==current_polarity:
+                                    comp_errors.append("Polarity can't be the same element \
+                                        as the component.")
+        return comp_errors
+
+    def assign_parameters(self, ckt_file_list):
+        """
+        Transfers data from the database to the component clas
+        objects for the simulation.
+        """
+        for ckt_file_item in ckt_file_list:
+            try:
+                check_switch = ckt_file_item.switch_set.all().\
+                        filter(comp_tag=self.tag)
+            except:
+                pass
+            else:
+                if check_switch and len(check_switch)==1:
+                    comp_model = check_switch[0]
+                    self.polrty = NwRdr.csv_tuple_2D(comp_model.comp_polarity)
+                    self.polrty_3D = NwRdr.csv_tuple(comp_model.comp_polarity_3D)
+                    self.switch_level = comp_model.comp_volt_level
+                    self.control_tag = [comp_model.comp_control_tag, ]
+                    self.resistor_off = self.switch_level/1.0e-6
+                    self.resistor = self.resistor_off
+        return
+
 
 
 nonlinear_freewheel_components = ["Switch", "Diode"]

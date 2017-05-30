@@ -29,6 +29,9 @@ class SimulationCase(models.Model):
 
 
 class SimulationCaseForm(ModelForm):
+    """
+    Form for simulation case parameters.
+    """
     class Meta:
         model = SimulationCase
         fields = ('sim_title',
@@ -49,18 +52,27 @@ class SimulationCaseForm(ModelForm):
 
 
     def clean_sim_time_step(self):
+        """
+        Ensures that simulation time step is positive.
+        """
         sim_time_step = float(self.cleaned_data["sim_time_step"])
         if sim_time_step<=0.0:
             raise forms.ValidationError("Simulation time step must be greater than 0.0")
         return sim_time_step
 
     def clean_sim_time_data(self):
+        """
+        Ensures that data storage time interval is positive.
+        """
         sim_time_data = float(self.cleaned_data["sim_time_data"])
         if sim_time_data<=0.0:
             raise forms.ValidationError("Data storage rate must be greater than 0.0")
         return sim_time_data
 
     def clean_sim_time_limit(self):
+        """
+        Ensures simulation time limit is positive.
+        """
         sim_time_limit = float(self.cleaned_data["sim_time_limit"])
         if sim_time_limit<=0.0:
             raise forms.ValidationError("Time limit must be greater than 0.0")
@@ -69,6 +81,10 @@ class SimulationCaseForm(ModelForm):
 
 
     def clean_sim_working_directory(self):
+        """
+        Ensures that the working directory exists and
+        can be written to by writing a sample text file.
+        """
         webdir = self.cleaned_data["sim_working_directory"]
         try:
             test_file = open(os.path.join(os.sep, \
@@ -80,31 +96,53 @@ class SimulationCaseForm(ModelForm):
         return webdir
 
     def clean(self):
+        """
+        This checks whether the data storage time step is greater
+        than or equal to the simulation time step. Also checks if
+        the number of slices is 2 or greater if the output slicing
+        option is chosen.
+        """
         cleaned_data = super(SimulationCaseForm, self).clean()
+        # The check below is because the previous individual clean methods
+        # could have removed the fields from the form if there were errors.
         if 'sim_time_step' in cleaned_data and 'sim_time_data' in cleaned_data:
             sim_time_step = float(cleaned_data.get('sim_time_step'))
             sim_time_data = float(cleaned_data.get('sim_time_data'))
 
             if sim_time_data<sim_time_step:
-                self.add_error('sim_time_data', 'This number must be greater than or equal to Integration Time Step (previous)')
+                self.add_error('sim_time_data', \
+                        'This number must be greater than or \
+                        equal to Integration Time Step (previous)')
             
             sim_output_slice = cleaned_data.get('sim_output_slice')
             sim_div_number = cleaned_data.get('sim_div_number')
             if sim_output_slice=="Yes" and sim_div_number<2:
-                self.add_error('sim_div_number', 'If the output file slicing option is chosen, the Number of Slices must be at least 2')
+                self.add_error('sim_div_number', \
+                        'If the output file slicing option is chosen, \
+                        the Number of Slices must be at least 2')
 
 
 class CircuitSchematics(models.Model):
+    """
+    Each circuit schematic belongs to a SimulationCase.
+    Therefore, a SimulationCase model can have multiple
+    CircuitSchematics models (foreign key).
+    """
     ckt_file_path = models.FileField(max_length=300, upload_to='', blank=True)
-    ckt_file_descrip = models.CharField(max_length=100, default="Sample circuit", verbose_name="Schematic description")
+    ckt_file_descrip = models.CharField(max_length=100, default="Sample circuit", \
+            verbose_name="Schematic description")
     ckt_file_name = models.CharField(max_length=300)
     ckt_sim_case = models.ForeignKey(SimulationCase)
 
     def __unicode__(self):
-        return "Circuit spreadsheet "+self.ckt_file_name+" with description "+self.ckt_file_descrip
+        return "Circuit spreadsheet " + self.ckt_file_name + \
+                " with description " + self.ckt_file_descrip
 
 
 class CircuitSchematicsForm(ModelForm):
+    """
+    Form for circuit schematics.
+    """
     class Meta:
         model = CircuitSchematics
         fields = ('ckt_file_path', 
@@ -112,6 +150,10 @@ class CircuitSchematicsForm(ModelForm):
 
 
 class CircuitComponents(models.Model):
+    """
+    This is equivalent to the dictionary components_found
+    which contains all the components in the circuit.
+    """
     comp_type = models.CharField(max_length=100)
     comp_number = models.IntegerField()
     comp_pos_3D = models.CharField(max_length=50)
@@ -122,10 +164,16 @@ class CircuitComponents(models.Model):
     sim_case = models.ForeignKey(SimulationCase)
 
     def __unicode__(self):
-        return "Component "+self.comp_type+" with name "+self.comp_tag+" at "+self.comp_pos+" in sheet "+self.sheet_name+".csv"
+        return "Component " + self.comp_type + " with name " + \
+                self.comp_tag + " at " + self.comp_pos + " in sheet " + self.sheet_name+".csv"
 
 
 class MeterComponents(models.Model):
+    """
+    Every meter in the circuit has a model with its basic details
+    so that it can appear in the drop down boxes while configuring
+    control codes.
+    """
     ckt_file_name = models.CharField(max_length=100)
     comp_pos_3D = models.CharField(max_length=50)
     comp_tag = models.CharField(max_length=100)
@@ -138,8 +186,13 @@ class MeterComponents(models.Model):
                 " at " + self.comp_pos_3D + " in sheet " + self.ckt_file_name
 
 
-
 class ControllableComponents(models.Model):
+    """
+    Every component that can be controlled externally appears
+    as a model that is related to the simulation case. This is
+    to make it appear in the drop down boxes while configuring
+    control codes.
+    """
     ckt_file_name = models.CharField(max_length=100)
     comp_pos_3D = models.CharField(max_length=50)
     comp_tag = models.CharField(max_length=100)
@@ -154,25 +207,38 @@ class ControllableComponents(models.Model):
 
 
 class PlotLines(models.Model):
+    """
+    This model contains information about any component
+    or variable that appears in the output data file. This
+    is to be able to add them as waveforms when creating plots.
+    """
     line_name = models.CharField(max_length=50, verbose_name="Waveform source")
     line_type = models.CharField(max_length=1,
                                         choices=(("M", "Model"),
                                                  ("V", "VariableStorage")),
                                         default="M")
+    # This is the position in the output data file.
     line_pos = models.IntegerField()
     sim_case = models.ForeignKey(SimulationCase)
 
     def __unicode__(self):
-        return "Source "+self.line_name
+        return "Source " + self.line_name
 
 
 class PlotLinesForm(ModelForm):
+    """
+    This form is never used because PlotLines is used
+    with CircuitWaveforms as a ManytoMany relationship.
+    """
     class Meta:
         model = PlotLines
         fields = ('line_name', )
 
 
 class CircuitPlot(models.Model):
+    """
+    Every plot is a model related to the simulation case.
+    """
     plot_title = models.CharField(max_length=100, default="Plot", \
                 verbose_name = "Plot title")
     sim_case = models.ForeignKey(SimulationCase)
@@ -188,6 +254,15 @@ class CircuitPlotForm(ModelForm):
 
 
 class CircuitWaveforms(models.Model):
+    """
+    This model links the PlotLines and the CircuitPlot.
+    The waveforms are related to the circuit plot by
+    foregin key so a circuit plot can have multiple waveforms.
+    The actual plot information contained in PlotLines is
+    related by a ManytoMany relationship as a plot line
+    can appear in many waveforms and a waveform can have
+    many plot lines.
+    """
     waveform_legend = models.CharField(max_length=20, blank=True, null=True)
     waveform_scale = models.FloatField(default=1.0, verbose_name = "Scaling Factor")
     circuit_plot = models.ForeignKey(CircuitPlot)
@@ -205,13 +280,18 @@ class CircuitWaveformsForm(ModelForm):
 
 
 class ControlFile(models.Model):
+    """
+    A simulation case can have many control files so the
+    control files are related by a foreign key relationship.
+    """
     control_file = models.FileField(max_length=300, upload_to='', blank=True)
     control_file_name = models.CharField(max_length=300)
-    control_file_descrip = models.TextField(blank=True, null=True, verbose_name="Control description")
+    control_file_descrip = models.TextField(blank=True, null=True, \
+            verbose_name="Control description")
     sim_case = models.ForeignKey(SimulationCase)
 
     def __unicode__(self):
-        return "Control file with name "+self.control_file_name
+        return "Control file with name " + self.control_file_name
 
 
 class ControlFileForm(ModelForm):
@@ -222,6 +302,10 @@ class ControlFileForm(ModelForm):
 
 
 class ControlInputs(models.Model):
+    """
+    A control file can have many control inputs so the
+    relationship is foreignkey.
+    """
     input_source = models.CharField(max_length=100, \
             verbose_name = "Name of meter")
     input_variable_name = models.CharField(max_length=100, \
@@ -240,6 +324,10 @@ class ControlInputsForm(ModelForm):
 
 
 class ControlOutputs(models.Model):
+    """
+    A control file can have many control outputs so the
+    relationship is foreignkey.
+    """
     output_target = models.CharField(max_length=100, \
             verbose_name = "Name of controlled component")
     output_variable_name = models.CharField(max_length=100, \
@@ -260,6 +348,10 @@ class ControlOutputsForm(ModelForm):
 
 
 class ControlStaticVariable(models.Model):
+    """
+    A control file can have many static variables so the
+    relationship is foreignkey.
+    """
     static_variable_name = models.CharField(max_length=100, \
             verbose_name = "Desired variable name in control code")
     static_initial_value = models.FloatField(default=0.0, \
@@ -278,6 +370,10 @@ class ControlStaticVariableForm(ModelForm):
 
 
 class ControlTimeEvent(models.Model):
+    """
+    A control file can have many time events so the
+    relationship is foreignkey.
+    """
     time_event_name = models.CharField(max_length=25, \
             verbose_name="Name of time event variable")
     initial_time_value = models.FloatField(verbose_name="Initial time event")
@@ -295,6 +391,11 @@ class ControlTimeEventForm(ModelForm):
 
 
 class ControlVariableStorage(models.Model):
+    """
+    Variable storage is related to the simulation case as
+    a variable storage element is available to all control
+    files.
+    """
     variable_storage_name = models.CharField(max_length=100, \
             verbose_name = "Desired variable name in control code")
     storage_initial_value = models.FloatField(verbose_name = "Initial value of variable")
@@ -318,6 +419,14 @@ class ControlVariableStorageForm(ModelForm):
                 'storage_status',)
 
 
+# The following models are for component types and are
+# similar to the classes in circuit_elements. The idea is
+# to have forms for each component.
+# The components have common data fields like position, tag,
+# type, sheet_name etc. This is so that they can be searched
+# from the component classes and forms can be created and
+# extracted from methods within the component classes in
+# circuit_elements.
 class Resistor(models.Model):
     comp_type = models.CharField(max_length=100, default="Resistor", \
             verbose_name="Component type")
@@ -339,9 +448,9 @@ class Resistor(models.Model):
     comp_resistor = models.FloatField(default=100.0, verbose_name="Resistor value")
 
     def __unicode__(self):
-        return "Component "+self.comp_type+" with name "+self.comp_tag+" at "+\
-                self.comp_pos+" in sheet "+self.sheet_name+\
-                ".csv"+" has value "+str(self.comp_resistor)+" Ohms"
+        return "Component " + self.comp_type + " with name " + self.comp_tag + " at " + \
+                self.comp_pos + " in sheet " + self.sheet_name + \
+                ".csv" + " has value " + str(self.comp_resistor) + " Ohms"
 
 
 class ResistorForm(ModelForm):
@@ -382,9 +491,9 @@ class VariableResistor(models.Model):
     comp_resistor = models.FloatField(default=100.0, verbose_name="Initial resistor value")
 
     def __unicode__(self):
-        return "Component "+self.comp_type+" with name "+self.comp_tag+" at "+\
-                self.comp_pos+" in sheet "+self.sheet_name+\
-                ".csv"+" has value "+str(self.comp_resistor)+" Ohms"
+        return "Component " + self.comp_type + " with name " + self.comp_tag + " at " + \
+                self.comp_pos + " in sheet " + self.sheet_name + \
+                ".csv" + " has value " + str(self.comp_resistor) + " Ohms"
 
 
 class VariableResistorForm(ModelForm):
@@ -421,9 +530,9 @@ class Inductor(models.Model):
     comp_inductor = models.FloatField(default=0.001, verbose_name="Inductor value")
 
     def __unicode__(self):
-        return "Component "+self.comp_type+" with name "+self.comp_tag+" at "+\
-                self.comp_pos+" in sheet "+self.sheet_name+\
-                ".csv"+" has value "+str(self.comp_inductor)+" Henry"
+        return "Component " + self.comp_type + " with name " + self.comp_tag + " at " + \
+                self.comp_pos + " in sheet " + self.sheet_name + \
+                ".csv" + " has value " + str(self.comp_inductor) + " Henry"
 
 
 class InductorForm(ModelForm):
@@ -464,9 +573,9 @@ class VariableInductor(models.Model):
     comp_inductor = models.FloatField(default=0.001, verbose_name="Initial inductor value")
 
     def __unicode__(self):
-        return "Component "+self.comp_type+" with name "+self.comp_tag+" at "+\
-                self.comp_pos+" in sheet "+self.sheet_name+\
-                ".csv"+" has value "+str(self.comp_inductor)+" Henry"
+        return "Component " + self.comp_type + " with name " + self.comp_tag + " at " + \
+                self.comp_pos + " in sheet " + self.sheet_name+\
+                ".csv" + " has value " + str(self.comp_inductor) + " Henry"
 
 
 class VariableInductorForm(ModelForm):
@@ -508,9 +617,9 @@ class Capacitor(models.Model):
     comp_capacitor = models.FloatField(default=10.0e-6, verbose_name="Capacitor value")
 
     def __unicode__(self):
-        return "Component "+self.comp_type+" with name "+self.comp_tag+" at "+\
-                self.comp_pos+" in sheet "+self.sheet_name+".csv"+\
-                " has value "+str(self.comp_capacitor)+" Farad"
+        return "Component " + self.comp_type + " with name " + self.comp_tag + " at " + \
+                self.comp_pos + " in sheet " + self.sheet_name + ".csv" + \
+                " has value " + str(self.comp_capacitor) + " Farad"
 
 
 class CapacitorForm(ModelForm):
@@ -555,9 +664,9 @@ class Voltage_Source(models.Model):
     comp_volt_offset = models.FloatField(default=0.0, verbose_name="Dc offset")
 
     def __unicode__(self):
-        return "Component "+self.comp_type+" with name "+self.comp_tag+" at "+\
-                self.comp_pos+" in sheet "+self.sheet_name+".csv"+\
-                " has peak value "+str(self.comp_volt_peak)+" Volts"
+        return "Component " + self.comp_type + " with name " + self.comp_tag + " at " + \
+                self.comp_pos + " in sheet " + self.sheet_name + ".csv" + \
+                " has peak value " + str(self.comp_volt_peak) + " Volts"
 
 
 class Voltage_SourceForm(ModelForm):
@@ -614,16 +723,17 @@ class Controlled_Voltage_Source(models.Model):
     comp_voltage = models.FloatField(default=0.0, verbose_name="Initial voltage")
 
     def __unicode__(self):
-        return "Component "+self.comp_type+" with name "+self.comp_tag+" at "+\
-                self.comp_pos+" in sheet "+self.sheet_name+".csv"+\
-                " has peak value "+str(self.comp_volt_peak)+" Volts"
+        return "Component " + self.comp_type + " with name " + self.comp_tag + " at " + \
+                self.comp_pos + " in sheet " + self.sheet_name + ".csv" + \
+                " has peak value " + str(self.comp_volt_peak) + " Volts"
 
 
 class Controlled_Voltage_SourceForm(ModelForm):
     class Meta:
         model = Controlled_Voltage_Source
         fields = ('comp_control_tag', \
-                'comp_control_value',)
+                'comp_voltage',\
+                'comp_polarity',)
 
 
 class Ammeter(models.Model):
@@ -651,8 +761,8 @@ class Ammeter(models.Model):
     comp_has_control = models.BooleanField(max_length=5, default=False)
 
     def __unicode__(self):
-        return "Component "+self.comp_type+" with name "+self.comp_tag+" at "+\
-                self.comp_pos+" in sheet "+self.sheet_name+".csv"
+        return "Component " + self.comp_type + " with name " + self.comp_tag + " at " + \
+                self.comp_pos + " in sheet " + self.sheet_name + ".csv"
 
 
 class AmmeterForm(ModelForm):
@@ -689,8 +799,8 @@ class Voltmeter(models.Model):
     comp_has_control = models.BooleanField(max_length=5, default=False)
 
     def __unicode__(self):
-        return "Component "+self.comp_type+" with name "+self.comp_tag+" at "+\
-                self.comp_pos+" in sheet "+self.sheet_name+".csv"
+        return "Component " + self.comp_type + " with name " + self.comp_tag + " at " + \
+                self.comp_pos + " in sheet " + self.sheet_name + ".csv"
 
 
 class VoltmeterForm(ModelForm):
@@ -734,8 +844,8 @@ class Diode(models.Model):
     comp_has_control = models.BooleanField(max_length=5, default=False)
 
     def __unicode__(self):
-        return "Component "+self.comp_type+" with name "+self.comp_tag+" at "+\
-                self.comp_pos+" in sheet "+self.sheet_name+".csv"
+        return "Component " + self.comp_type + " with name " + self.comp_tag + " at " + \
+                self.comp_pos + " in sheet " + self.sheet_name + ".csv"
 
 
 class DiodeForm(ModelForm):
@@ -784,8 +894,8 @@ class Switch(models.Model):
     comp_has_control = models.BooleanField(max_length=5, default=True)
 
     def __unicode__(self):
-        return "Component "+self.comp_type+" with name "+self.comp_tag+" at "+\
-                self.comp_pos+" in sheet "+self.sheet_name+".csv"
+        return "Component " + self.comp_type + " with name " + self.comp_tag + " at " + \
+                self.comp_pos + " in sheet " + self.sheet_name + ".csv"
 
 
 class SwitchForm(ModelForm):
