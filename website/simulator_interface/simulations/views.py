@@ -2625,9 +2625,6 @@ def new_simulation(request):
                                 meter_circuit_plotlines[c1].delete()
                                 sim_para_model.save()
 
-                        print(sim_para_model.plotlines_set.all())
-                        print
-                        print
                         # Do the same for variable storage elements from
                         # the plotted variable list.
                         plotted_variable_list = synthesized_ckt_comps["plotted_variable_list"]
@@ -2938,7 +2935,7 @@ def new_simulation(request):
                     if received_waveform_form.is_valid():
                         received_waveform_data = received_waveform_form.cleaned_data
                         new_waveform.waveform_legend = received_waveform_data["waveform_legend"]
-                        new_waveform.waveform_scale = int(received_waveform_data["waveform_scale"])
+                        new_waveform.waveform_scale = float(received_waveform_data["waveform_scale"])
                         new_waveform.save()
                     # The waveform source is external to the model form.
                     # Find out which model it is in plotlines and add it
@@ -3726,7 +3723,7 @@ def new_simulation(request):
                                 y_var_scale = []
                                 for waveform_items in ckt_plot_item.circuitwaveforms_set.all():
                                     y_var_labels.append(waveform_items.waveform_legend)
-                                    y_var_scale.append(waveform_items.waveform_scale)
+                                    y_var_scale.append(float(waveform_items.waveform_scale))
                                     for waveform_plots in waveform_items.waveform.all():
                                         y_var_indices.append(waveform_plots.line_pos)
                                         y_var.append([])
@@ -4070,7 +4067,6 @@ def new_simulation(request):
                 choosing_simulations.append("choose_sim"+"_"+str(sim_item.id))
             
             for sim_item in choosing_simulations:
-                print(sim_item)
                 if sim_item in request.POST and request.POST[sim_item]=="Load simulation":
                     sim_id = int(sim_item.split("_")[-1])
 
