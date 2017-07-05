@@ -1457,6 +1457,7 @@ def extract_simulation_case(request):
         sim_para_model.sim_title = sim_parameters["sim_title"]
         sim_para_model.sim_descrip = sim_parameters["sim_descrip"]
         sim_para_model.sim_time_limit = sim_parameters["sim_time_limit"]
+        sim_para_model.sim_time_step = sim_parameters["sim_time_step"]
         sim_para_model.sim_time_data = sim_parameters["sim_time_data"]
         sim_para_model.sim_output_file = sim_parameters["sim_output_file"]
         sim_para_model.sim_output_slice = sim_parameters["sim_output_slice"]
