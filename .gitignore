@@ -1,0 +1,9 @@
+*.pyc
+__init__.py
+simulation_collection
+manage.py
+settings.py
+migrations/
+admin.py
+apps.py
+*.docx
