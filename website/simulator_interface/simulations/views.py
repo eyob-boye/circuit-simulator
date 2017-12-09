@@ -659,7 +659,7 @@ def simulation_iterations(sim_id, synthesized_ckt_comps):
                                         branch_params, branch_tags_in_loops)
 
                 Slv.approximate_nonstiff_loops(branch_params, stiff_ratio, system_loop_map, \
-                                branches_in_kcl_nodes, kcl_branch_map)
+                                branches_in_kcl_nodes, kcl_branch_map, branch_tags_in_loops)
                 
                 
                 # With the stiff branches minimized to the minimum number
@@ -926,7 +926,7 @@ def simulation_iterations(sim_id, synthesized_ckt_comps):
                 # information.
 
                 Slv.approximate_nonstiff_loops(branch_params, stiff_ratio, system_loop_map, \
-                                branches_in_kcl_nodes, kcl_branch_map)
+                                branches_in_kcl_nodes, kcl_branch_map, branch_tags_in_loops)
 
                 snap_branch_stiffness[branch_stiffness_key] = []
                 for c1 in range(len(stiff_ratio)):
@@ -1968,10 +1968,11 @@ def process_circuit_schematics(sim_para_model):
             comp_exist = all_components[c2]
             comp_found = False
             c1 = 0
-            while c1<len(components_found[comp_exist.comp_type]) and comp_found==False:
-                if components_found[comp_exist.comp_type][c1][1]==comp_exist.comp_tag:
-                    comp_found = True
-                c1 += 1
+            if comp_exist.comp_type in components_found.keys():
+                while c1<len(components_found[comp_exist.comp_type]) and comp_found==False:
+                    if components_found[comp_exist.comp_type][c1][1]==comp_exist.comp_tag:
+                        comp_found = True
+                    c1 += 1
             
             if comp_found==False:
                 comp_exist.delete()

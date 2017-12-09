@@ -2218,7 +2218,7 @@ def new_stiff_loop_adjustment(sys_loop_map, branch_info, br_events, stiff_info, 
     return
 
 
-def approximate_nonstiff_loops(branch_info, stiff_info, sys_loop_map, branches_in_kcl_nodes, kcl_branch_map):
+def approximate_nonstiff_loops(branch_info, stiff_info, sys_loop_map, branches_in_kcl_nodes, kcl_branch_map, branch_tags_in_loops):
     """
     The purpose of this function is to arrange the non stiff
     loops in order of their L/R time constants. This is because
@@ -2267,23 +2267,37 @@ def approximate_nonstiff_loops(branch_info, stiff_info, sys_loop_map, branches_i
                                         if not min_res_branch==c2:
                                             old_branch_pos = kcl_branch_map[c3][c4][0].index(c2)
                                             new_branch_pos = kcl_branch_map[c3][c4][0].index(min_res_branch)
+                                            # The new loop is created separately and then checked
+                                            # if this loop already exists. If so, don't add it to
+                                            # sys_loop_map as it will be a repeat loop.
+                                            new_min_branch_loop = []
+                                            for c6 in range(len(sys_loop_map[c1])):
+                                                new_min_branch_loop.append(sys_loop_map[c1][c6])
                                             if sys_loop_map[c1][c2]=="forward":
                                                 if kcl_branch_map[c3][c4][1][old_branch_pos]== \
                                                            kcl_branch_map[c3][c4][1][new_branch_pos]:
-                                                    sys_loop_map[c1][c2] = "no"
-                                                    sys_loop_map[c1][min_res_branch] = "forward"
+                                                    new_min_branch_loop[c2] = "no"
+                                                    new_min_branch_loop[min_res_branch] = "forward"
                                                 else:
-                                                    sys_loop_map[c1][c2] = "no"
-                                                    sys_loop_map[c1][min_res_branch] = "reverse"
+                                                    new_min_branch_loop[c2] = "no"
+                                                    new_min_branch_loop[min_res_branch] = "reverse"
                                             else:
                                                 if kcl_branch_map[c3][c4][1][old_branch_pos]== \
                                                            kcl_branch_map[c3][c4][1][new_branch_pos]:
-                                                    sys_loop_map[c1][c2] = "no"
-                                                    sys_loop_map[c1][min_res_branch] = "reverse"
+                                                    new_min_branch_loop[c2] = "no"
+                                                    new_min_branch_loop[min_res_branch] = "reverse"
                                                 else:
-                                                    sys_loop_map[c1][c2] = "no"
-                                                    sys_loop_map[c1][min_res_branch] = "forward"
-    
+                                                    new_min_branch_loop[c2] = "no"
+                                                    new_min_branch_loop[min_res_branch] = "forward"
+                                            this_new_loop_found = False
+                                            for c6 in range(len(sys_loop_map)):
+                                                if not c6==c1:
+                                                    if sys_loop_map[c6]==new_min_branch_loop:
+                                                        this_new_loop_found = True
+
+                                            if not this_new_loop_found:
+                                                for c6 in range(len(sys_loop_map[c1])):
+                                                    sys_loop_map[c1][c6] = new_min_branch_loop[c6]
 
     # Delete any loops that may have become duplicates because 
     # of the above manipulation.
