@@ -812,10 +812,10 @@ folder/directory as circuit_solver.py" %nw_layout[c1]
                                         common_branch_found = "yes"
                                         if system_loop_map[c3][c2]==system_loop_map[row_position][c2]:
                                             loop_manip_result = Slv.loop_manipulations(system_loop_map, branches_in_kcl_nodes, kcl_branch_map, \
-                                                    row_position, c3, "difference", branch_params, branch_tags_in_loops)
+                                                    row_position, c3, "difference", branch_params, branch_tags_in_loops, stiff_ratio)
                                         else:
                                             loop_manip_result = Slv.loop_manipulations(system_loop_map, branches_in_kcl_nodes, kcl_branch_map, \
-                                                    row_position, c3, "addition", branch_params, branch_tags_in_loops)
+                                                    row_position, c3, "addition", branch_params, branch_tags_in_loops, stiff_ratio)
                                         
                                         if loop_manip_result:
                                             loop_manip_success = "yes"
@@ -961,7 +961,7 @@ folder/directory as circuit_solver.py" %nw_layout[c1]
                 # The stiff loops are isolated to the minimum number of loops
                 # So that the system dynamics are captured as far as possible.
                 Slv.remove_stiffness(system_loop_map, [curr_state_vec, next_state_vec], loop_stiff_info, branches_in_kcl_nodes, kcl_branch_map, \
-                                        branch_params, branch_tags_in_loops)
+                                        branch_params, branch_tags_in_loops, stiff_ratio)
 
                 Slv.approximate_nonstiff_loops(branch_params, stiff_ratio, system_loop_map, branches_in_kcl_nodes, kcl_branch_map, branch_tags_in_loops)
 
@@ -1245,14 +1245,15 @@ folder/directory as circuit_solver.py" %nw_layout[c1]
                 # The stiff loops are isolated to the minimum number of loops
                 # So that the system dynamics are captured as far as possible.
                 Slv.remove_stiffness(system_loop_map, [curr_state_vec, next_state_vec], loop_stiff_info, branches_in_kcl_nodes, kcl_branch_map, \
-                                        branch_params, branch_tags_in_loops)
+                                        branch_params, branch_tags_in_loops, stiff_ratio)
                     
                 # Add all the system matrices to the dictionary
                 # corresponding to the layout of the branch stiff
                 # information.
                 
                 Slv.approximate_nonstiff_loops(branch_params, stiff_ratio, system_loop_map, branches_in_kcl_nodes, kcl_branch_map, branch_tags_in_loops)
-                
+
+            
                 snap_branch_stiffness[branch_stiffness_key] = []
                 for c1 in range(len(stiff_ratio)):
                     snap_branch_stiffness[branch_stiffness_key].append(stiff_ratio[c1])
@@ -1434,7 +1435,7 @@ folder/directory as circuit_solver.py" %nw_layout[c1]
             for c1 in range(len(branch_params)):
                 branch_params[c1][-1][2] = branch_currents[c1]
             
-            
+
             # This next part arranges the non stiff loops according
             # to their L/R ratios and attempts at isolating loops
             # with very low L/R ratio that may need to be approximated
@@ -1525,7 +1526,6 @@ folder/directory as circuit_solver.py" %nw_layout[c1]
 #            Slv.debug_loops(system_loop_map, branches_in_kcl_nodes, branch_params, branch_tags_in_loops, range(len(system_loop_map)))
 #            print
 #            print
-            
             # End of the event driven tasks.
         
         

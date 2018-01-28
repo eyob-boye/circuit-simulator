@@ -1065,7 +1065,7 @@ def nonstiff_loop_manipulations(sys_loop_map, branches_in_kcl_nodes, kcl_branch_
 
 
 
-def loop_manipulations(sys_loop_map, branches_in_kcl_nodes, kcl_branch_map, row1, row2, manip_sense, branch_params, branch_tags_in_loops):
+def loop_manipulations(sys_loop_map, branches_in_kcl_nodes, kcl_branch_map, row1, row2, manip_sense, branch_params, branch_tags_in_loops, stiff_info):
     """
     This function manipulates one loop with respect to another loop.
     This operation is similar to the row operations on matrices except
@@ -1157,7 +1157,7 @@ def loop_manipulations(sys_loop_map, branches_in_kcl_nodes, kcl_branch_map, row1
     
     # The resultant loop may have more than one loop so split these loops.
     new_resultant_loop = splitting_loops(resultant_loop, branches_in_kcl_nodes, kcl_branch_map, branch_params, branch_tags_in_loops)
-    
+
 
     # If at least one loop is found, the first loop becomes the second
     # loop in the function argument. The additional loops are added to the
@@ -1172,6 +1172,16 @@ def loop_manipulations(sys_loop_map, branches_in_kcl_nodes, kcl_branch_map, row1
         if loop_exists=="yes":
             for c2 in range(len(new_resultant_loop[0])):
                 sys_loop_map[row2][c2] = new_resultant_loop[0][c2]
+            # Check if the resultant is a nonstiff loop.
+            # If so, make sure it follows path of least resistance.
+            # Check if every branch in loop is the lowest resistance
+            # if that branch has parallel branches.
+            loop_is_nonstiff = True
+            for c2 in range(len(sys_loop_map[row2])):
+                if sys_loop_map[row2][c2]=="stiff_forward" or sys_loop_map[row2][c2]=="stiff_reverse":
+                    loop_is_nonstiff = False
+            if loop_is_nonstiff:
+                loop_min_res_path(sys_loop_map, kcl_branch_map, stiff_info, branch_params, row2)
     else:
         for c2 in range(len(sys_loop_map[row2])):
             sys_loop_map[row2][c2] = "no"
@@ -1181,6 +1191,16 @@ def loop_manipulations(sys_loop_map, branches_in_kcl_nodes, kcl_branch_map, row1
             sys_loop_map.append([])
             for c3 in range(len(new_resultant_loop[c2])):
                 sys_loop_map[-1].append(new_resultant_loop[c2][c3])
+            # Check if resultants are nonstiff loops.
+            # If so, make sure it follows path of least resistance.
+            # Check if every branch in loop is the lowest resistance
+            # if that branch has parallel branches.
+            loop_is_nonstiff = True
+            for c2 in range(len(sys_loop_map[-1])):
+                if sys_loop_map[-1][c2]=="stiff_forward" or sys_loop_map[-1][c2]=="stiff_reverse":
+                    loop_is_nonstiff = False
+            if loop_is_nonstiff:
+                loop_min_res_path(sys_loop_map, kcl_branch_map, stiff_info, branch_params, len(sys_loop_map)-1)
     
     return
 
@@ -1488,7 +1508,7 @@ def remove_stiffness_old(sys_loop_map, state_vectors, loop_stiff_info, branches_
 
 
 
-def remove_stiffness(sys_loop_map, state_vectors, loop_stiff_info, branches_in_kcl_nodes, kcl_branch_map, branch_params, branch_tags_in_loops):
+def remove_stiffness(sys_loop_map, state_vectors, loop_stiff_info, branches_in_kcl_nodes, kcl_branch_map, branch_params, branch_tags_in_loops, stiff_info):
     """
     Reduces the stiffness of the ODE by limiting the
     appearance of stiff branches in the loops.
@@ -1500,8 +1520,7 @@ def remove_stiffness(sys_loop_map, state_vectors, loop_stiff_info, branches_in_k
 
     # To first arrange the loops such that the first branch
     # that is stiff occurs in the first loop and so on.
-
-
+    
     # Make a list of the non-stiff branches.
     nonstiff_branches = []
     list_of_nonstiff_branches = []
@@ -1593,6 +1612,54 @@ def remove_stiffness(sys_loop_map, state_vectors, loop_stiff_info, branches_in_k
     # for non-stiff loops.
     stiff_sys_loop_map = []
     nonstiff_sys_loop_map = []
+
+    # Now add loops with only two branches. Check for all branches
+    # connected in parallel from kcl_branch_map. As before, find
+    # out the branch with minimum resistance. All loops between
+    # these parallel branches will have the branch with minimum
+    # resistance a common branch. This again ensures the concept
+    # of loops choosing the path of least resistance.
+    for c1 in range(len(kcl_branch_map)):
+        for c2 in range(c1+1, len(kcl_branch_map)):
+            if kcl_branch_map[c1][c2]:
+                if len(kcl_branch_map[c1][c2][0])>1:
+                    min_res_branch_found = "no"
+                    for c3 in range(len(kcl_branch_map[c1][c2][0])):
+                        if stiff_info[kcl_branch_map[c1][c2][0][c3]]=="no":
+                            min_res_branch = kcl_branch_map[c1][c2][0][c3]
+                            min_res_branch_found = "yes"
+                    
+                    if min_res_branch_found=="yes":
+                        for c3 in range(1, len(kcl_branch_map[c1][c2][0])):
+                            if stiff_info[kcl_branch_map[c1][c2][0][c3]]=="no":
+                                if branch_params[min_res_branch][-1][0][0]>branch_params[kcl_branch_map[c1][c2][0][c3]][-1][0][0]:
+                                    min_res_branch = kcl_branch_map[c1][c2][0][c3]
+                        
+                        for c3 in range(len(kcl_branch_map[c1][c2][0])):
+                            if stiff_info[kcl_branch_map[c1][c2][0][c3]]=="no":
+                                if not kcl_branch_map[c1][c2][0][c3]==min_res_branch:
+                                    row_vector = []
+                                    for c4 in range(len(branch_params)):
+                                        row_vector.append("no")
+                                    min_res_branch_pos = kcl_branch_map[c1][c2][0].index(min_res_branch)
+                                    if kcl_branch_map[c1][c2][1][min_res_branch_pos]==1:
+                                        row_vector[min_res_branch] = "forward"
+                                    else:
+                                        row_vector[min_res_branch] = "reverse"
+                                    
+                                    if kcl_branch_map[c1][c2][1][c3]==1:
+                                        row_vector[kcl_branch_map[c1][c2][0][c3]] = "reverse"
+                                    else:
+                                        row_vector[kcl_branch_map[c1][c2][0][c3]] = "forward"
+                                    
+                                    nonstiff_sys_loop_map.append(row_vector)
+
+    # This variable keeps track of the number of non-stiff
+    # parallel branches added as non-stiff loops.
+    parallel_nonstiff_branches = len(nonstiff_sys_loop_map)
+
+    # Split the loops already in sys_loop_map into
+    # stiff and non-stiff lists.
     for c1 in range(len(sys_loop_map)):
         first_loop_nonstiff = "yes"
         for c2 in range(len(sys_loop_map[c1])):
@@ -1605,10 +1672,22 @@ def remove_stiffness(sys_loop_map, state_vectors, loop_stiff_info, branches_in_k
                 row_vector.append(sys_loop_map[c1][c2])
             stiff_sys_loop_map.append(row_vector)
         else:
+            loop_min_res_path(sys_loop_map, kcl_branch_map, stiff_info, branch_params, c1)
             row_vector = []
             for c2 in range(len(sys_loop_map[c1])):
                 row_vector.append(sys_loop_map[c1][c2])
             nonstiff_sys_loop_map.append(row_vector)
+
+
+    # Delete the loops with two branches as these have
+    # been added already with minimum resistance branch.
+    for c1 in range(len(nonstiff_sys_loop_map)-1, -1, parallel_nonstiff_branches-1):
+        number_of_branches = 0
+        for c2 in range(len(sys_loop_map[c1])):
+            if not sys_loop_map[c1][c2]=="no":
+                number_of_branches += 1
+        if number_of_branches==2:
+            del sys_loop_map[c1]
 
 
     # First manipulate the stiff loops. The objective is 
@@ -1679,10 +1758,10 @@ def remove_stiffness(sys_loop_map, state_vectors, loop_stiff_info, branches_in_k
                             # This is simply row operation of loops.
                             if stiff_sys_loop_map[map_loop_count][map_branch_count]==stiff_sys_loop_map[c1][map_branch_count]:
                                 loop_manipulations(stiff_sys_loop_map, branches_in_kcl_nodes, kcl_branch_map, map_loop_count, c1, \
-                                            "difference", branch_params, branch_tags_in_loops)
+                                            "difference", branch_params, branch_tags_in_loops, stiff_info)
                             else:
                                 loop_manipulations(stiff_sys_loop_map, branches_in_kcl_nodes, kcl_branch_map, map_loop_count, c1, \
-                                            "addition", branch_params, branch_tags_in_loops)
+                                            "addition", branch_params, branch_tags_in_loops, stiff_info)
             
 
             # Increment the loop count and make the branch count equal that
@@ -1720,6 +1799,7 @@ def remove_stiffness(sys_loop_map, state_vectors, loop_stiff_info, branches_in_k
     # be possible as here compatibility of loops are checked.
     # The objective is to remove redundant loops that are a linear
     # combination of other loops.
+#    map_loop_count = parallel_nonstiff_branches
     map_loop_count = 0
     map_branch_count = 0
     # Start with the first branch of the first loop.
@@ -1780,12 +1860,14 @@ def remove_stiffness(sys_loop_map, state_vectors, loop_stiff_info, branches_in_k
 #                            traditional_loop_manipulations(nonstiff_sys_loop_map, branches_in_kcl_nodes, kcl_branch_map, map_loop_count, \
 #                                            c1, "difference")
                             loop_manipulations(nonstiff_sys_loop_map, branches_in_kcl_nodes, kcl_branch_map, map_loop_count, c1, \
-                                            "difference", branch_params, branch_tags_in_loops)
+                                            "difference", branch_params, branch_tags_in_loops, stiff_info)
+#                            loop_min_res_path(nonstiff_sys_loop_map, kcl_branch_map, stiff_info, branch_params, c1)
                         else:
 #                            traditional_loop_manipulations(nonstiff_sys_loop_map, branches_in_kcl_nodes, kcl_branch_map, map_loop_count, \
 #                                            c1, "addition")
                             loop_manipulations(nonstiff_sys_loop_map, branches_in_kcl_nodes, kcl_branch_map, map_loop_count, c1, \
-                                            "addition", branch_params, branch_tags_in_loops)
+                                            "addition", branch_params, branch_tags_in_loops, stiff_info)
+#                            loop_min_res_path(nonstiff_sys_loop_map, kcl_branch_map, stiff_info, branch_params, c1)
 
 
         # Increment the loop count and make the branch count equal that
@@ -1794,86 +1876,91 @@ def remove_stiffness(sys_loop_map, state_vectors, loop_stiff_info, branches_in_k
         map_branch_count = map_loop_count
     
 
-    loop_nonstiff_extracted = "no"
-    while loop_nonstiff_extracted=="no":
-        
-        map_loop_count = 0
-        map_branch_count = 0
-        # Start with the first branch of the first loop.
-        while map_loop_count<len(nonstiff_sys_loop_map):
+#    loop_nonstiff_extracted = "no"
+#    while loop_nonstiff_extracted=="no":
+#        
+#        map_loop_count = 0
+#        map_branch_count = 0
+#        # Start with the first branch of the first loop.
+#        while map_loop_count<len(nonstiff_sys_loop_map):
+#
+#            if map_branch_count<len(nonstiff_sys_loop_map[0]):
+#                if nonstiff_sys_loop_map[map_loop_count][map_branch_count]=="forward" or \
+#                            nonstiff_sys_loop_map[map_loop_count][map_branch_count]=="reverse":
+#
+#                    loop_found = "yes"
+#                else:
+#                    loop_found = "no"
+#
+#            # If a loop is not found and the branches are not exhausted.
+#            while loop_found=="no" and map_branch_count<len(nonstiff_sys_loop_map[0]):
+#                # Check if the branch is nonstiff in the loop.
+#                if nonstiff_sys_loop_map[map_loop_count][map_branch_count]=="forward" or \
+#                            nonstiff_sys_loop_map[map_loop_count][map_branch_count]=="reverse":
+#                    loop_found = "yes"
+#
+#                # If not, look at all the remaining loops corresponding to that branch.
+#                # The idea is that if a branch is stiff, it will appear in at least
+#                # one loop and so need to look through all loops to make sure it is
+#                # not missed.
+#                c1 = map_loop_count+1
+#                while loop_found=="no" and c1<len(nonstiff_sys_loop_map):
+#                    if nonstiff_sys_loop_map[c1][map_branch_count]=="forward" or \
+#                                nonstiff_sys_loop_map[c1][map_branch_count]=="reverse":
+#                        
+#                        for c2 in range(len(nonstiff_sys_loop_map[0])):
+#                            # If a subsequenct loop is found to have the branch as stiff,
+#                            # interchange the rows.
+#                            nonstiff_sys_loop_map[c1][c2], nonstiff_sys_loop_map[map_loop_count][c2] = \
+#                                        nonstiff_sys_loop_map[map_loop_count][c2], nonstiff_sys_loop_map[c1][c2]
+#
+#                        loop_found = "yes"
+#
+#                    c1 += 1
+#                # If all loops are exhausted and no element is found as stiff
+#                # for the branch, it means the branch is not stiff
+#                # or has been accounted in a previous loop.
+#                # So move on to the next branch.
+#                if loop_found=="no":
+#                    map_branch_count += 1
+#
+#
+#            # If a loop has been found, the loops need to be made as upper triangular
+#            # So all stiff branches in the loops subsequent to the loop will have to eliminated.
+#            if loop_found=="yes":
+##                for c1 in range(len(sys_loop_map)):
+#                for c1 in range(map_loop_count+1, len(nonstiff_sys_loop_map)):
+#                    if not c1==map_loop_count:
+#                        if nonstiff_sys_loop_map[c1][map_branch_count]=="forward" or \
+#                                    nonstiff_sys_loop_map[c1][map_branch_count]=="reverse":                            
+#                                    
+#                            # This is simply row operation of loops.
+#                            if nonstiff_sys_loop_map[map_loop_count][map_branch_count]==nonstiff_sys_loop_map[c1][map_branch_count]:
+#                                traditional_loop_manipulations(nonstiff_sys_loop_map, branches_in_kcl_nodes, kcl_branch_map, \
+#                                                map_loop_count, c1, "difference")
+##                                loop_manipulations(nonstiff_sys_loop_map, branches_in_kcl_nodes, kcl_branch_map, map_loop_count, c1, "difference")
+#                                loop_min_res_path(nonstiff_sys_loop_map, kcl_branch_map, stiff_info, branch_params, c1)
+#                            else:
+#                                traditional_loop_manipulations(nonstiff_sys_loop_map, branches_in_kcl_nodes, kcl_branch_map, \
+#                                                map_loop_count, c1, "addition")
+##                                loop_manipulations(nonstiff_sys_loop_map, branches_in_kcl_nodes, kcl_branch_map, map_loop_count, c1, "addition")
+#                                loop_min_res_path(nonstiff_sys_loop_map, kcl_branch_map, stiff_info, branch_params, c1)
+#    
+#    
+#            # Increment the loop count and make the branch count equal that
+#            # So the default is a diagonal stiff element.
+#            map_loop_count += 1
+#            map_branch_count = map_loop_count
+#        
+#        # Delete additional non-stiff loops.
+#        if len(nonstiff_sys_loop_map)>=no_of_nonstiff_loops:
+#            for c1 in range(len(nonstiff_sys_loop_map)-1, no_of_nonstiff_loops-1, -1):
+#                del nonstiff_sys_loop_map[c1]
+#            loop_nonstiff_extracted = "yes"
 
-            if map_branch_count<len(nonstiff_sys_loop_map[0]):
-                if nonstiff_sys_loop_map[map_loop_count][map_branch_count]=="forward" or \
-                            nonstiff_sys_loop_map[map_loop_count][map_branch_count]=="reverse":
 
-                    loop_found = "yes"
-                else:
-                    loop_found = "no"
-
-            # If a loop is not found and the branches are not exhausted.
-            while loop_found=="no" and map_branch_count<len(nonstiff_sys_loop_map[0]):
-                # Check if the branch is nonstiff in the loop.
-                if nonstiff_sys_loop_map[map_loop_count][map_branch_count]=="forward" or \
-                            nonstiff_sys_loop_map[map_loop_count][map_branch_count]=="reverse":
-                    loop_found = "yes"
-
-                # If not, look at all the remaining loops corresponding to that branch.
-                # The idea is that if a branch is stiff, it will appear in at least
-                # one loop and so need to look through all loops to make sure it is
-                # not missed.
-                c1 = map_loop_count+1
-                while loop_found=="no" and c1<len(nonstiff_sys_loop_map):
-                    if nonstiff_sys_loop_map[c1][map_branch_count]=="forward" or \
-                                nonstiff_sys_loop_map[c1][map_branch_count]=="reverse":
-                        
-                        for c2 in range(len(nonstiff_sys_loop_map[0])):
-                            # If a subsequenct loop is found to have the branch as stiff,
-                            # interchange the rows.
-                            nonstiff_sys_loop_map[c1][c2], nonstiff_sys_loop_map[map_loop_count][c2] = \
-                                        nonstiff_sys_loop_map[map_loop_count][c2], nonstiff_sys_loop_map[c1][c2]
-
-                        loop_found = "yes"
-
-                    c1 += 1
-                # If all loops are exhausted and no element is found as stiff
-                # for the branch, it means the branch is not stiff
-                # or has been accounted in a previous loop.
-                # So move on to the next branch.
-                if loop_found=="no":
-                    map_branch_count += 1
-
-
-            # If a loop has been found, the loops need to be made as upper triangular
-            # So all stiff branches in the loops subsequent to the loop will have to eliminated.
-            if loop_found=="yes":
-#                for c1 in range(len(sys_loop_map)):
-                for c1 in range(map_loop_count+1, len(nonstiff_sys_loop_map)):
-                    if not c1==map_loop_count:
-                        if nonstiff_sys_loop_map[c1][map_branch_count]=="forward" or \
-                                    nonstiff_sys_loop_map[c1][map_branch_count]=="reverse":                            
-                                    
-                            # This is simply row operation of loops.
-                            if nonstiff_sys_loop_map[map_loop_count][map_branch_count]==nonstiff_sys_loop_map[c1][map_branch_count]:
-                                traditional_loop_manipulations(nonstiff_sys_loop_map, branches_in_kcl_nodes, kcl_branch_map, \
-                                                map_loop_count, c1, "difference")
-#                                loop_manipulations(nonstiff_sys_loop_map, branches_in_kcl_nodes, kcl_branch_map, map_loop_count, c1, "difference")
-                            else:
-                                traditional_loop_manipulations(nonstiff_sys_loop_map, branches_in_kcl_nodes, kcl_branch_map, \
-                                                map_loop_count, c1, "addition")
-#                                loop_manipulations(nonstiff_sys_loop_map, branches_in_kcl_nodes, kcl_branch_map, map_loop_count, c1, "addition")
-    
-    
-            # Increment the loop count and make the branch count equal that
-            # So the default is a diagonal stiff element.
-            map_loop_count += 1
-            map_branch_count = map_loop_count
-        
-        # Delete additional non-stiff loops.
-        if len(nonstiff_sys_loop_map)>=no_of_nonstiff_loops:
-            for c1 in range(len(nonstiff_sys_loop_map)-1, no_of_nonstiff_loops-1, -1):
-                del nonstiff_sys_loop_map[c1]
-            loop_nonstiff_extracted = "yes"
-
+#    for c1 in range(len(nonstiff_sys_loop_map)):
+#        loop_min_res_path(nonstiff_sys_loop_map, kcl_branch_map, stiff_info, branch_params, c1)
 
     # Combine the stiff loops and the non-stiff loops
     # back into a single loop map.
@@ -1923,6 +2010,7 @@ def remove_stiffness(sys_loop_map, state_vectors, loop_stiff_info, branches_in_k
         else:
             del sys_loop_map[c1]
 
+    
     return
 
 
@@ -2218,6 +2306,70 @@ def new_stiff_loop_adjustment(sys_loop_map, branch_info, br_events, stiff_info, 
     return
 
 
+def loop_min_res_path(sys_loop_map, kcl_branch_map, stiff_info, branch_info, c1):
+    number_of_branches = 0
+    for c2 in range(len(sys_loop_map[c1])):
+        if not sys_loop_map[c1][c2]=="no":
+            number_of_branches += 1
+    
+    if number_of_branches>2:
+        # For loops with more than two branches, iterate through every 
+        # branch and check from kcl_branch_map if it has branches 
+        # in parallel across it. If so, find out which branch has 
+        # minimum resistance. That branch replaces the current branch.
+        for c2 in range(len(sys_loop_map[c1])):
+            if not sys_loop_map[c1][c2]=="no":
+                for c3 in range(len(kcl_branch_map)):
+                    for c4 in range(c3+1, len(kcl_branch_map)):
+                        if kcl_branch_map[c3][c4]:
+                            if c2 in kcl_branch_map[c3][c4][0]:
+                                if len(kcl_branch_map[c3][c4][0])>1:
+                                    min_res_branch = c2
+                                    for c5 in kcl_branch_map[c3][c4][0]:
+                                        if not c5==c2:
+                                            if stiff_info[c5]=="no":
+                                                if branch_info[c5][-1][0][0]<branch_info[min_res_branch][-1][0][0]:
+                                                    min_res_branch = c5
+    
+                                    if not min_res_branch==c2:
+                                        old_branch_pos = kcl_branch_map[c3][c4][0].index(c2)
+                                        new_branch_pos = kcl_branch_map[c3][c4][0].index(min_res_branch)
+                                        # The new loop is created separately and then checked
+                                        # if this loop already exists. If so, don't add it to
+                                        # sys_loop_map as it will be a repeat loop.
+                                        new_min_branch_loop = []
+                                        for c6 in range(len(sys_loop_map[c1])):
+                                            new_min_branch_loop.append(sys_loop_map[c1][c6])
+    
+                                        if sys_loop_map[c1][c2]=="forward":
+                                            if kcl_branch_map[c3][c4][1][old_branch_pos]== \
+                                                       kcl_branch_map[c3][c4][1][new_branch_pos]:
+                                                new_min_branch_loop[c2] = "no"
+                                                new_min_branch_loop[min_res_branch] = "forward"
+                                            else:
+                                                new_min_branch_loop[c2] = "no"
+                                                new_min_branch_loop[min_res_branch] = "reverse"
+                                        else:
+                                            if kcl_branch_map[c3][c4][1][old_branch_pos]== \
+                                                       kcl_branch_map[c3][c4][1][new_branch_pos]:
+                                                new_min_branch_loop[c2] = "no"
+                                                new_min_branch_loop[min_res_branch] = "reverse"
+                                            else:
+                                                new_min_branch_loop[c2] = "no"
+                                                new_min_branch_loop[min_res_branch] = "forward"
+#                                        this_new_loop_found = False
+#                                        for c6 in range(len(sys_loop_map)):
+#                                            if not c6==c1:
+#                                                if sys_loop_map[c6]==new_min_branch_loop:
+#                                                    this_new_loop_found = True
+    
+#                                        if not this_new_loop_found:
+                                        for c6 in range(len(sys_loop_map[c1])):
+                                            sys_loop_map[c1][c6] = new_min_branch_loop[c6]
+
+    return
+
+
 def approximate_nonstiff_loops(branch_info, stiff_info, sys_loop_map, branches_in_kcl_nodes, kcl_branch_map, branch_tags_in_loops):
     """
     The purpose of this function is to arrange the non stiff
@@ -2237,134 +2389,134 @@ def approximate_nonstiff_loops(branch_info, stiff_info, sys_loop_map, branches_i
     nonstiff_loops = listing_nonstiff_loops(sys_loop_map, branch_info) 
 
     
-    for c1 in nonstiff_loops:
-        # Distinguish between loops with two branches and more.
-        # Loops with only two branches are branches that are connected
-        # in parallel and hence treated differently.
-        number_of_branches = 0
-        for c2 in range(len(sys_loop_map[c1])):
-            if not sys_loop_map[c1][c2]=="no":
-                number_of_branches += 1
-
-        if number_of_branches>2:
-            # For loops with more than two branches, iterate through every 
-            # branch and check from kcl_branch_map if it has branches 
-            # in parallel across it. If so, find out which branch has 
-            # minimum resistance. That branch replaces the current branch.
-            for c2 in range(len(sys_loop_map[c1])):
-                if not sys_loop_map[c1][c2]=="no":
-                    for c3 in range(len(kcl_branch_map)):
-                        for c4 in range(c3+1, len(kcl_branch_map)):
-                            if kcl_branch_map[c3][c4]:
-                                if c2 in kcl_branch_map[c3][c4][0]:
-                                    if len(kcl_branch_map[c3][c4][0])>1:
-                                        min_res_branch = c2
-                                        for c5 in kcl_branch_map[c3][c4][0]:
-                                            if not c5==c2:
-                                                if stiff_info[c5]=="no":
-                                                    if branch_info[c5][-1][0][0]<branch_info[min_res_branch][-1][0][0]:
-                                                        min_res_branch = c5
-
-                                        if not min_res_branch==c2:
-                                            old_branch_pos = kcl_branch_map[c3][c4][0].index(c2)
-                                            new_branch_pos = kcl_branch_map[c3][c4][0].index(min_res_branch)
-                                            # The new loop is created separately and then checked
-                                            # if this loop already exists. If so, don't add it to
-                                            # sys_loop_map as it will be a repeat loop.
-                                            new_min_branch_loop = []
-                                            for c6 in range(len(sys_loop_map[c1])):
-                                                new_min_branch_loop.append(sys_loop_map[c1][c6])
-
-                                            if sys_loop_map[c1][c2]=="forward":
-                                                if kcl_branch_map[c3][c4][1][old_branch_pos]== \
-                                                           kcl_branch_map[c3][c4][1][new_branch_pos]:
-                                                    new_min_branch_loop[c2] = "no"
-                                                    new_min_branch_loop[min_res_branch] = "forward"
-                                                else:
-                                                    new_min_branch_loop[c2] = "no"
-                                                    new_min_branch_loop[min_res_branch] = "reverse"
-                                            else:
-                                                if kcl_branch_map[c3][c4][1][old_branch_pos]== \
-                                                           kcl_branch_map[c3][c4][1][new_branch_pos]:
-                                                    new_min_branch_loop[c2] = "no"
-                                                    new_min_branch_loop[min_res_branch] = "reverse"
-                                                else:
-                                                    new_min_branch_loop[c2] = "no"
-                                                    new_min_branch_loop[min_res_branch] = "forward"
-                                            this_new_loop_found = False
-                                            for c6 in range(len(sys_loop_map)):
-                                                if not c6==c1:
-                                                    if sys_loop_map[c6]==new_min_branch_loop:
-                                                        this_new_loop_found = True
-
-                                            if not this_new_loop_found:
-                                                for c6 in range(len(sys_loop_map[c1])):
-                                                    sys_loop_map[c1][c6] = new_min_branch_loop[c6]
+#    for c1 in nonstiff_loops:
+#        # Distinguish between loops with two branches and more.
+#        # Loops with only two branches are branches that are connected
+#        # in parallel and hence treated differently.
+#        number_of_branches = 0
+#        for c2 in range(len(sys_loop_map[c1])):
+#            if not sys_loop_map[c1][c2]=="no":
+#                number_of_branches += 1
+#
+#        if number_of_branches>2:
+#            # For loops with more than two branches, iterate through every 
+#            # branch and check from kcl_branch_map if it has branches 
+#            # in parallel across it. If so, find out which branch has 
+#            # minimum resistance. That branch replaces the current branch.
+#            for c2 in range(len(sys_loop_map[c1])):
+#                if not sys_loop_map[c1][c2]=="no":
+#                    for c3 in range(len(kcl_branch_map)):
+#                        for c4 in range(c3+1, len(kcl_branch_map)):
+#                            if kcl_branch_map[c3][c4]:
+#                                if c2 in kcl_branch_map[c3][c4][0]:
+#                                    if len(kcl_branch_map[c3][c4][0])>1:
+#                                        min_res_branch = c2
+#                                        for c5 in kcl_branch_map[c3][c4][0]:
+#                                            if not c5==c2:
+#                                                if stiff_info[c5]=="no":
+#                                                    if branch_info[c5][-1][0][0]<branch_info[min_res_branch][-1][0][0]:
+#                                                        min_res_branch = c5
+#
+#                                        if not min_res_branch==c2:
+#                                            old_branch_pos = kcl_branch_map[c3][c4][0].index(c2)
+#                                            new_branch_pos = kcl_branch_map[c3][c4][0].index(min_res_branch)
+#                                            # The new loop is created separately and then checked
+#                                            # if this loop already exists. If so, don't add it to
+#                                            # sys_loop_map as it will be a repeat loop.
+#                                            new_min_branch_loop = []
+#                                            for c6 in range(len(sys_loop_map[c1])):
+#                                                new_min_branch_loop.append(sys_loop_map[c1][c6])
+#
+#                                            if sys_loop_map[c1][c2]=="forward":
+#                                                if kcl_branch_map[c3][c4][1][old_branch_pos]== \
+#                                                           kcl_branch_map[c3][c4][1][new_branch_pos]:
+#                                                    new_min_branch_loop[c2] = "no"
+#                                                    new_min_branch_loop[min_res_branch] = "forward"
+#                                                else:
+#                                                    new_min_branch_loop[c2] = "no"
+#                                                    new_min_branch_loop[min_res_branch] = "reverse"
+#                                            else:
+#                                                if kcl_branch_map[c3][c4][1][old_branch_pos]== \
+#                                                           kcl_branch_map[c3][c4][1][new_branch_pos]:
+#                                                    new_min_branch_loop[c2] = "no"
+#                                                    new_min_branch_loop[min_res_branch] = "reverse"
+#                                                else:
+#                                                    new_min_branch_loop[c2] = "no"
+#                                                    new_min_branch_loop[min_res_branch] = "forward"
+#                                            this_new_loop_found = False
+#                                            for c6 in range(len(sys_loop_map)):
+#                                                if not c6==c1:
+#                                                    if sys_loop_map[c6]==new_min_branch_loop:
+#                                                        this_new_loop_found = True
+#
+#                                            if not this_new_loop_found:
+#                                                for c6 in range(len(sys_loop_map[c1])):
+#                                                    sys_loop_map[c1][c6] = new_min_branch_loop[c6]
 
     # Delete any loops that may have become duplicates because 
     # of the above manipulation.
-    for c1 in range(len(nonstiff_loops)-1):
-        for c2 in range(len(nonstiff_loops)-1, c1, -1):
-            loops_same = "yes"
-            for c3 in range(len(sys_loop_map[nonstiff_loops[c1]])):
-                if not sys_loop_map[nonstiff_loops[c1]][c3]==sys_loop_map[nonstiff_loops[c2]][c3]:
-                    loops_same = "no"
-
-            if loops_same=="yes":
-                del sys_loop_map[nonstiff_loops[c2]]
+#    for c1 in range(len(nonstiff_loops)-1):
+#        for c2 in range(len(nonstiff_loops)-1, c1, -1):
+#            loops_same = "yes"
+#            for c3 in range(len(sys_loop_map[nonstiff_loops[c1]])):
+#                if not sys_loop_map[nonstiff_loops[c1]][c3]==sys_loop_map[nonstiff_loops[c2]][c3]:
+#                    loops_same = "no"
+#
+#            if loops_same=="yes":
+#                del sys_loop_map[nonstiff_loops[c2]]
    
 
     # Delete all loops with only two branches.
-    for c1 in range(len(nonstiff_loops)-1, -1, -1):
-        number_of_branches = 0
-        for c2 in range(len(sys_loop_map[c1])):
-            if not sys_loop_map[nonstiff_loops[c1]][c2]=="no":
-                number_of_branches += 1
-
-        if number_of_branches==2:
-            del sys_loop_map[nonstiff_loops[c1]]
-
-    
-    # Now add loops with only two branches. Check for all branches
-    # connected in parallel from kcl_branch_map. As before, find
-    # out the branch with minimum resistance. All loops between
-    # these parallel branches will have the branch with minimum
-    # resistance a common branch. This again ensures the concept
-    # of loops choosing the path of least resistance.
-    for c1 in range(len(kcl_branch_map)):
-        for c2 in range(c1+1, len(kcl_branch_map)):
-            if kcl_branch_map[c1][c2]:
-                if len(kcl_branch_map[c1][c2][0])>1:
-                    min_res_branch_found = "no"
-                    for c3 in range(len(kcl_branch_map[c1][c2][0])):
-                        if stiff_info[kcl_branch_map[c1][c2][0][c3]]=="no":
-                            min_res_branch = kcl_branch_map[c1][c2][0][c3]
-                            min_res_branch_found = "yes"
-                    
-                    if min_res_branch_found=="yes":
-                        for c3 in range(1, len(kcl_branch_map[c1][c2][0])):
-                            if stiff_info[kcl_branch_map[c1][c2][0][c3]]=="no":
-                                if branch_info[min_res_branch][-1][0][0]>branch_info[kcl_branch_map[c1][c2][0][c3]][-1][0][0]:
-                                    min_res_branch = kcl_branch_map[c1][c2][0][c3]
-                        
-                        for c3 in range(len(kcl_branch_map[c1][c2][0])):
-                            if stiff_info[kcl_branch_map[c1][c2][0][c3]]=="no":
-                                if not kcl_branch_map[c1][c2][0][c3]==min_res_branch:
-                                    row_vector = []
-                                    for c4 in range(len(branch_info)):
-                                        row_vector.append("no")
-                                    min_res_branch_pos = kcl_branch_map[c1][c2][0].index(min_res_branch)
-                                    if kcl_branch_map[c1][c2][1][min_res_branch_pos]==1:
-                                        row_vector[min_res_branch] = "forward"
-                                    else:
-                                        row_vector[min_res_branch] = "reverse"
-                                    
-                                    if kcl_branch_map[c1][c2][1][c3]==1:
-                                        row_vector[kcl_branch_map[c1][c2][0][c3]] = "reverse"
-                                    else:
-                                        row_vector[kcl_branch_map[c1][c2][0][c3]] = "forward"
-                                    
-                                    sys_loop_map.append(row_vector)
+#    for c1 in range(len(nonstiff_loops)-1, -1, -1):
+#        number_of_branches = 0
+#        for c2 in range(len(sys_loop_map[c1])):
+#            if not sys_loop_map[nonstiff_loops[c1]][c2]=="no":
+#                number_of_branches += 1
+#
+#        if number_of_branches==2:
+#            del sys_loop_map[nonstiff_loops[c1]]
+#
+#    
+#    # Now add loops with only two branches. Check for all branches
+#    # connected in parallel from kcl_branch_map. As before, find
+#    # out the branch with minimum resistance. All loops between
+#    # these parallel branches will have the branch with minimum
+#    # resistance a common branch. This again ensures the concept
+#    # of loops choosing the path of least resistance.
+#    for c1 in range(len(kcl_branch_map)):
+#        for c2 in range(c1+1, len(kcl_branch_map)):
+#            if kcl_branch_map[c1][c2]:
+#                if len(kcl_branch_map[c1][c2][0])>1:
+#                    min_res_branch_found = "no"
+#                    for c3 in range(len(kcl_branch_map[c1][c2][0])):
+#                        if stiff_info[kcl_branch_map[c1][c2][0][c3]]=="no":
+#                            min_res_branch = kcl_branch_map[c1][c2][0][c3]
+#                            min_res_branch_found = "yes"
+#                    
+#                    if min_res_branch_found=="yes":
+#                        for c3 in range(1, len(kcl_branch_map[c1][c2][0])):
+#                            if stiff_info[kcl_branch_map[c1][c2][0][c3]]=="no":
+#                                if branch_info[min_res_branch][-1][0][0]>branch_info[kcl_branch_map[c1][c2][0][c3]][-1][0][0]:
+#                                    min_res_branch = kcl_branch_map[c1][c2][0][c3]
+#                        
+#                        for c3 in range(len(kcl_branch_map[c1][c2][0])):
+#                            if stiff_info[kcl_branch_map[c1][c2][0][c3]]=="no":
+#                                if not kcl_branch_map[c1][c2][0][c3]==min_res_branch:
+#                                    row_vector = []
+#                                    for c4 in range(len(branch_info)):
+#                                        row_vector.append("no")
+#                                    min_res_branch_pos = kcl_branch_map[c1][c2][0].index(min_res_branch)
+#                                    if kcl_branch_map[c1][c2][1][min_res_branch_pos]==1:
+#                                        row_vector[min_res_branch] = "forward"
+#                                    else:
+#                                        row_vector[min_res_branch] = "reverse"
+#                                    
+#                                    if kcl_branch_map[c1][c2][1][c3]==1:
+#                                        row_vector[kcl_branch_map[c1][c2][0][c3]] = "reverse"
+#                                    else:
+#                                        row_vector[kcl_branch_map[c1][c2][0][c3]] = "forward"
+#                                    
+#                                    sys_loop_map.append(row_vector)
 
     
     # Calculate the L/R ratio in each loop
@@ -2910,7 +3062,7 @@ def compute_loop_currents_generate(branch_info, stiff_info, sys_loop_map, br_eve
     # Make a list of the nonstiff loops
     # Because stiff loops will essentially have a negligible
     # current.
-    nonstiff_loops = listing_nonstiff_loops(sys_loop_map, branch_info) 
+    nonstiff_loops = listing_nonstiff_loops(sys_loop_map, branch_info)
     
     single_nonstiff_collection, compute_loops_nonstiff, loop_map_collection_nonstiff = \
                 compute_nonstiff_loops_generate(sys_loop_map, nonstiff_loops, branch_info)
@@ -2935,7 +3087,6 @@ def calc_nonstiff_loop_currents(single_collection, compute_loops_nonstiff, loop_
     single_loops = single_collection[0]
     single_branches = single_collection[1]
     single_directions = single_collection[2]
-
     
     for c1 in range(len(single_loops)):
         state_vector[0].data[single_loops[c1]][0] = branch_params[single_branches[c1]][-1][2]*single_directions[c1]
@@ -2945,7 +3096,7 @@ def calc_nonstiff_loop_currents(single_collection, compute_loops_nonstiff, loop_
     loop_conn_mat = loop_map_collection[0]
     loop_src_vec = loop_map_collection[1]
     loop_src_branches = loop_map_collection[2]
-    
+
     
     for c1 in range(len(loop_src_branches)):
         loop_src_vec[c1] = branch_params[loop_src_branches[c1][0][0]][-1][2]
